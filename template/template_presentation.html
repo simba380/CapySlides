@@ -38,15 +38,15 @@
 
     <!-- Main slides -->
     <section data-type="content">
-      <h2 class="slide-title">Slide title</h2>
+      <h2 class="slide-title">Slide 3 – title</h2>
     </section>
 
     <section data-type="content">
-      <h2 class="slide-title">Slide title</h2>
+      <h2 class="slide-title">Slide 4 – title</h2>
     </section>
 
     <section data-type="content">
-      <h2 class="slide-title">Slide title</h2>
+      <h2 class="slide-title">Slide 5 – title</h2>
     </section>
 
     <!-- An animation as a slide (needs an entry in DECK.animations; data-params preset its state):
@@ -57,7 +57,7 @@
     <section data-type="black"></section>
 
     <section data-type="content">
-      <h2 class="slide-title">Appendix slide title</h2>
+      <h2 class="slide-title">Appendix 1 – title</h2>
     </section>
   </main>
   <!-- ═════ END USER ZONE ═════════════════════════════════════════════════ -->
@@ -311,6 +311,31 @@
   .row-problems { margin-top: 5px; padding-left: 18px; font-size: 12.5px; line-height: 1.4; color: #b71c1c; }
   .row-problems li + li { margin-top: 3px; }
 
+  /* ── Math (SPEC §13): display formulas at --fs-math; inline keeps KaTeX's 1.21em ── */
+  #deck .katex-display > .katex { font-size: var(--fs-math); }
+
+  /* ── ?dev ▦ Components panel (SPEC §12.8, R11-1): wider panel, examples scaled to fit ── */
+  .deck-panel.wide { width: 960px; max-height: 88%; }
+  .comp-list { gap: 27px; }
+  .comp-item { display: flex; flex-direction: column; gap: 6.75px; }
+  .comp-item + .comp-item { border-top: 1px solid #e8e8e8; padding-top: 22.5px; }
+  .comp-title { font-size: 18px; font-weight: 700; color: var(--ink); }
+  .comp-from { font-size: 12.5px; color: var(--muted); margin-top: -4.5px; }
+  .comp-preview { position: relative; width: 100%; overflow: hidden; border: 1px solid #ddd; border-radius: 6.75px; background: #fff; }
+  .slide-content.comp-stage {
+    position: absolute; top: 0; left: 0; flex: none; padding: 18px 22.5px;
+    transform-origin: 0 0; pointer-events: none;
+  }
+  .comp-code summary { cursor: pointer; font: 600 12.5px/1.6 var(--font-sans); color: var(--eth); width: max-content; }
+  .comp-copy {
+    all: unset; cursor: pointer; float: right; padding: 2.25px 11.25px; border-radius: 6.75px;
+    background: var(--eth); color: #fff; font: 600 12.5px/1.4 var(--font-sans);
+  }
+  .comp-code pre {
+    clear: both; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: #333; background: #f3f4f7;
+    border-radius: 6.75px; padding: 9px 11.25px; white-space: pre; overflow: auto; max-height: 180px; margin-top: 4.5px;
+  }
+
   /* ── Dev warnings badge (decision R4-1; only rendered with ?dev) ─────── */
   #deck-warnings {
     position: fixed; left: 10px; bottom: 10px; z-index: 10000; max-width: min(640px, 90vw);
@@ -331,8 +356,168 @@
   #deck-warnings .dw-list li { padding: 2px 0; }
 }
 /* Deck engine — component library (SPEC §14). Source of truth: engine/components.css.
-   Components are added in P5; user CSS (unlayered) always overrides this layer. */
+   Building blocks distilled from the EfficientNet deck (original px x 1.125). Every component
+   works with data-step / data-step-class. Snippets: engine/components.html (also shown in the
+   ?dev Slides panel). User CSS (unlayered) always overrides this layer. */
 @layer components {
+
+  /* ── Text helpers ──────────────────────────────────────────────────── */
+  .title-mark { color: var(--title-mark); font-weight: 700; }
+  .accent-1 { color: var(--accent-1); }
+  .accent-2 { color: var(--accent-2); }
+  .accent-3 { color: var(--accent-3); }
+  .accent-4 { color: var(--accent-4); }
+  .muted { color: var(--muted); }
+  mark, .mark { background: rgba(255,240,100,.7); color: inherit; padding: 1px 4.5px; border-radius: 3.375px; }
+  .subtitle { font-size: var(--fs-body); font-weight: 400; color: var(--ink); margin-bottom: 18px; }
+  .punchline { text-align: center; font-size: var(--fs-body); font-weight: 700; margin-top: 2.4em; }
+
+  /* Title whose words are highlighted one per step: data-step-class="hi:2..2" on a span */
+  .step-title { font-size: var(--fs-title); font-weight: 400; color: var(--ink); margin-bottom: 33.75px; line-height: 1.3; }
+  .step-title .hi, .slide-title .hi { font-weight: 800; color: var(--eth); }
+
+  /* ── Numbered list (Motivation bullets): numbers come from a CSS counter ── */
+  .num-list { list-style: none; display: flex; flex-direction: column; gap: 20.25px; counter-reset: num; }
+  .num-item { display: flex; gap: 15.75px; align-items: flex-start; font-size: var(--fs-body); line-height: 1.5; counter-increment: num; }
+  .num-item::before {
+    content: counter(num); flex-shrink: 0; width: 29.25px; height: 29.25px; margin-top: 4.5px;
+    background: var(--eth); color: #fff; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: var(--fs-footnote); font-weight: 700; line-height: 1;
+  }
+  .num-sub { color: #444; font-size: var(--fs-sub); margin-top: 3.375px; }
+
+  /* ── Label + description rows (Problem / Insight / Method / Result) ─── */
+  .ld-list { display: flex; flex-direction: column; gap: 24.75px; }
+  .ld-row { display: flex; flex-direction: column; gap: 5.625px; }
+  .ld-row > .label { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+  .ld-row > .desc {
+    font-size: var(--fs-sub); color: #333; line-height: 1.5;
+    padding-left: 20.25px; border-left: 3.375px solid #ddd; margin-left: 2.25px;
+  }
+
+  /* ── Code block: <pre class="code-block" data-lang="python"> is coloured automatically ── */
+  .code-block {
+    font-family: var(--font-mono); font-size: var(--fs-code); line-height: 1.5;
+    background: #1e1e2e; color: #cdd6f4; padding: 15.75px 22.5px; border-radius: 9px;
+    margin-bottom: 29.25px; white-space: pre; overflow-x: auto; tab-size: 4;
+  }
+  .code-block .ck { color: #89dceb; }   /* keyword, self */
+  .code-block .cf { color: #89b4fa; }   /* function / class call */
+  .code-block .ca { color: #cba6f7; }   /* keyword argument */
+  .code-block .cn { color: #fab387; }   /* number */
+  .code-block .cs { color: #a6e3a1; }   /* string */
+  .code-block .cc { color: #7f849c; font-style: italic; }   /* comment */
+  /* Underline glows, typically switched on per step: data-step-class="hl-orange:2" */
+  .hl-orange {
+    text-decoration: underline 6.75px #f0a020; text-underline-offset: 4.5px;
+    filter: drop-shadow(0 0 5.625px rgba(240,160,32,.8)); transition: filter .3s ease;
+  }
+  .hl-teal {
+    text-decoration: underline 3.375px #2dd4bf; text-underline-offset: 4.5px;
+    filter: drop-shadow(0 0 4.5px rgba(45,212,191,.8)); transition: filter .3s ease;
+  }
+
+  /* ── Boxes ─────────────────────────────────────────────────────────── */
+  .formula-box {
+    background: rgba(240,160,20,.09); border-left: 4.5px solid #f0a020; border-radius: 6.75px;
+    padding: 18px 31.5px; font-size: 33.75px;
+    display: flex; align-items: center; gap: 27px; flex-wrap: wrap;
+  }
+  .formula-box.large {
+    background: rgba(240,160,20,.1); border-left-width: 6.75px; border-radius: 9px;
+    padding: 31.5px 54px; font-size: 45px; justify-content: center; width: 100%;
+  }
+  .formula-box.small { font-size: var(--fs-body); }
+  .info-box {
+    background: #f8f8f8; border-radius: 9px; padding: 13.5px 18px;
+    display: flex; flex-direction: column; gap: 11.25px; font-size: var(--fs-sub); line-height: 1.5;
+  }
+  .info-box ul { list-style: disc; padding-left: 31.5px; display: flex; flex-direction: column; gap: 5.625px; }
+  .conclusion-box {
+    border-left: 4.5px solid #e03030; background: rgba(224,48,48,.06); border-radius: 6.75px;
+    padding: 15.75px 22.5px; font-size: var(--fs-sub); line-height: 1.6; color: var(--ink);
+  }
+
+  /* ── Takeaway sections (Key takeaways, Outlook) ──────────────────────── */
+  .takeaways { display: flex; flex-direction: column; gap: var(--fs-body); margin-top: 9px; }
+  .tk-section { display: flex; flex-direction: column; gap: 11.25px; border: 2px solid #ddd; border-radius: 13.5px; padding: 18px 22.5px; }
+  .tk-section.borderless { border: none; padding: 0; }
+  .tk-header { font-size: var(--fs-body); font-weight: 700; color: var(--ink); display: flex; align-items: baseline; gap: 11.25px; }
+  .tk-header::before { content: "•"; font-size: 1.2em; }
+  .tk-sub { font-size: var(--fs-sub); color: #333; line-height: 1.55; display: flex; gap: 9px; margin-left: 31.5px; }
+  .tk-sub::before { content: "–"; flex-shrink: 0; color: #888; }
+  .tk-section > .formula-box { margin-left: 31.5px; }
+
+  /* ── Figure with overlay marks (Observation 1 ceiling line) ──────────── */
+  .figure-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .figure { position: relative; width: 100%; line-height: 0; }
+  .figure > img { width: 100%; display: block; border-radius: 6.75px; }
+  .overlay-line { position: absolute; left: 0; right: 0; border-top: 5.625px dashed #e03030; }
+  .overlay-label {
+    position: absolute; right: 0; line-height: 1.2; white-space: nowrap;
+    font-size: var(--fs-sub); font-weight: 700; color: #e03030;
+  }
+
+  /* ── Image strip / sprite panels (Resolution panels) ──────────────────── */
+  .image-strip { display: flex; gap: 18px; flex: 1; min-height: 0; align-items: stretch; margin-top: 9px; }
+  .strip-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+  .strip-img { flex: 1; min-height: 0; border-radius: 6.75px; overflow: hidden; }
+  .strip-caption { text-align: center; font-size: var(--fs-footnote); color: var(--muted); line-height: 1.4; }
+
+  /* ── Timeline (CNN arms race): events placed with style="left: 30%" ─── */
+  .timeline { flex: 1; min-height: 0; position: relative; }
+  .timeline::before {
+    content: ""; position: absolute; top: 50%; left: 2%; right: 2%; height: 3.375px;
+    background: #ccc; transform: translateY(-50%); border-radius: 2px;
+  }
+  .tl-event { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); }
+  .tl-above { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 15.75px; }
+  .tl-dot {
+    width: 24.75px; height: 24.75px; flex-shrink: 0; z-index: 1; border-radius: 50%;
+    background: var(--eth); border: 3.375px solid #fff; box-shadow: 0 0 0 2.8px var(--eth);
+  }
+  .tl-below { flex: 1; display: flex; flex-direction: column; align-items: center; padding-top: 15.75px; gap: 9px; }
+  .tl-year { font-size: var(--fs-body); font-weight: 700; color: var(--eth); }
+  .tl-name { font-size: var(--fs-title); font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .tl-sub  { font-size: var(--fs-body); color: var(--muted); text-align: center; white-space: nowrap; }
+  /* exactly as wide as the event name: width 0 keeps the image out of the event's width, min-width fills it */
+  .tl-below > img { width: 0; min-width: 100%; height: auto; object-fit: contain; border-radius: 4.5px; }
+
+  /* ── Data tables (results tables) ─────────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sub); line-height: 1.2; }
+  .data-table th, .data-table td { padding: 5.625px 11.25px; text-align: left; }
+  .data-table th { font-weight: 600; font-size: var(--fs-footnote); color: var(--ink); border-bottom: 2.25px solid #1a1a1a; }
+  .data-table thead tr.group th { color: var(--muted); border-bottom: 1px solid #ccc; text-align: center; }
+  .data-table thead tr.group + tr th { border-top: 2.25px solid #1a1a1a; }
+  .data-table td { color: #333; border-bottom: 1px solid #eee; }
+  .data-table.compact { font-size: 14.5px; line-height: 1.35; }
+  .data-table.compact th { font-size: 13.5px; padding: 5.625px 9px; }
+  .data-table.compact td { padding: 2.8px 9px; border-bottom: none; }
+  .data-table.centered td, .data-table.centered th { text-align: center; }
+  .data-table.centered td:first-child, .data-table.centered th:first-child { text-align: left; }
+  .data-table tr.row-group td { font-weight: 700; color: var(--ink); border-top: 1.7px solid #bbb; }
+  .data-table tbody tr.row-group:first-child td { border-top: none; }
+  .data-table tr.row-muted td { color: #555; }
+  .data-table tr.row-hl td { background: rgba(255,240,100,.55); }
+  .data-table tr.row-marker td:first-child { border-left: 3.375px solid #e03030; }
+  .data-table tr.row-total td { font-weight: 700; border-top: 2.25px solid #1a1a1a; }
+  .data-table .col-sep { border-left: 2.8px solid #888; }
+  .data-table .col-dbl { border-left: 3.375px double #888; }
+  .data-table .bold { font-weight: 700; }
+  .table-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .table-note { font-size: 12.5px; color: var(--muted); margin-top: 9px; font-style: italic; }
+
+  /* ── Bullets (plain lists with optional sub-items) ────────────────────── */
+  .bullets { list-style: disc; display: flex; flex-direction: column; gap: 9px; padding-left: 22.5px; font-size: var(--fs-sub); line-height: 1.5; }
+  .bullets .sub { list-style: none; margin-left: 18px; color: #444; }
+  .bullets .sub::before { content: "–  "; }
+
+  /* ── Layout: columns ──────────────────────────────────────────────────── */
+  .cols { display: flex; gap: 45px; flex: 1; min-height: 0; align-items: center; }
+  .cols > .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 31.5px; }
+  .cols > .col-fixed { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 40.5px; width: 100%; }
 }
 </style>
 <script id="deck-vendor-js">
@@ -366,8 +551,8 @@ SOFTWARE.
 /* Deck engine v0.1.0 — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
    Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
    §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
-   §10 assets (missing images → placeholders), §9 animations.
-   Later phases plug in here: P5 math escaping + components. */
+   §10 assets (missing images → placeholders), §9 animations, §13 math, §14 components
+   (code highlighting + the ?dev component catalog). */
 (() => {
   'use strict';
 
@@ -392,6 +577,10 @@ SOFTWARE.
   ];
   const THUMB_WIDTH = 126;   // navigator thumbnails (original 112px x 1.125)
   const HINT_MS = 4000;      // "← → to navigate" fades after this
+  const DOLLAR = '\uE024';   // stands in for an escaped \$ while KaTeX scans the text
+  const MATH_IGNORE = 'script, noscript, style, textarea, pre, code, option';
+  // Component catalog from engine/components.html (injected by tools/build.py): [{ name, from, html }].
+  const COMPONENTS = [{"name": "Numbered list", "from": "Motivation bullets", "html": "<ol class=\"num-list\">\n  <li class=\"num-item\" data-step=\"1\">\n    <div><strong>First point:</strong><div class=\"num-sub\">Explanation in a smaller, grey line.</div></div>\n  </li>\n  <li class=\"num-item\" data-step=\"2\">\n    <div><strong>Second point:</strong><div class=\"num-sub\">Numbers are generated automatically.</div></div>\n  </li>\n</ol>"}, {"name": "Label + description rows", "from": "Problem – Insight – Method – Result", "html": "<div class=\"ld-list\">\n  <div class=\"ld-row\" data-step=\"0\"><div class=\"label\">Problem:</div><div class=\"desc\">What is wrong today.</div></div>\n  <div class=\"ld-row\" data-step=\"1\"><div class=\"label\">Insight:</div><div class=\"desc\">The key observation.</div></div>\n  <div class=\"ld-row\" data-step=\"2\"><div class=\"label\">Method:</div><div class=\"desc\">What the paper does.</div></div>\n</div>"}, {"name": "Title with a word highlighted per step", "from": "Problem – Insight – Method – Result title", "html": "<h2 class=\"step-title slide-title\">\n  <span data-step-class=\"hi:0..0\">Problem</span> –\n  <span data-step-class=\"hi:1..1\">Insight</span> –\n  <span data-step-class=\"hi:2..2\">Method</span>\n</h2>"}, {"name": "Code block (Python, coloured automatically)", "from": "Motivation code line", "html": "<pre class=\"code-block\" data-lang=\"python\">self.conv = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3)  # comment</pre>"}, {"name": "Code block with step highlights", "from": "Motivation code line (underline glows)", "html": "<pre class=\"code-block\"><span class=\"ck\">self</span>.conv = nn.<span class=\"cf\" data-step-class=\"hl-orange:1\">Conv2d</span>(<span class=\"ca\" data-step-class=\"hl-teal:2\">in_channels</span>=<span class=\"cn\">3</span>)</pre>"}, {"name": "Formula box", "from": "Compound scaling formula", "html": "<div class=\"formula-box\">$d = \\alpha^\\phi,\\; w = \\beta^\\phi,\\; r = \\gamma^\\phi$</div>\n<div class=\"formula-box large\" data-step=\"1\">$$\\alpha \\cdot \\beta^2 \\cdot \\gamma^2 \\approx 2$$</div>"}, {"name": "Info box", "from": "Constraints: “FLOPS scale differently”", "html": "<div class=\"info-box\">\n  <div><strong>FLOPS scale differently per dimension:</strong></div>\n  <ul>\n    <li>Doubling <strong class=\"accent-1\">depth</strong> → FLOPS ×2</li>\n    <li>Doubling <strong class=\"accent-2\">width</strong> → FLOPS ×4</li>\n  </ul>\n</div>"}, {"name": "Conclusion box", "from": "Constraints: “Each ϕ step → FLOPS × 2^ϕ”", "html": "<div class=\"conclusion-box\">Each $\\phi$ step → total FLOPS × $2^\\phi$</div>"}, {"name": "Takeaway sections", "from": "Key takeaways, Outlook", "html": "<div class=\"takeaways\">\n  <div class=\"tk-section\">\n    <div class=\"tk-header\" data-step=\"1\">First takeaway:</div>\n    <div class=\"tk-sub\" data-step=\"1\">Supporting detail.</div>\n    <div class=\"tk-sub\" data-step=\"2\">Another detail.</div>\n  </div>\n  <div class=\"tk-section borderless\">\n    <div class=\"tk-header\" data-step=\"3\">Section without a frame:</div>\n    <div class=\"tk-sub\" data-step=\"3\">Detail.</div>\n  </div>\n</div>"}, {"name": "Figure with overlay line and label", "from": "Observation 1 (ceiling line)", "html": "<div class=\"figure-wrap\" data-step=\"0\">\n  <div class=\"figure\">\n    <img src=\"images/your_figure.png\" width=\"1600\" height=\"720\" alt=\"\">\n    <div class=\"overlay-line\" style=\"top: 16%; left: 6.5%; right: 1%\" data-step=\"1\" data-step-fx=\"fade\"></div>\n    <div class=\"overlay-label\" style=\"top: 9%\" data-step=\"1\" data-step-fx=\"fade\">~80% ceiling</div>\n  </div>\n</div>", "height": 560}, {"name": "Image strip (sprite panels)", "from": "Importance of resolution (4 panels)", "html": "<div class=\"image-strip\">\n  <div class=\"strip-panel\" data-step=\"1\" data-step-fx=\"slide-left\">\n    <div class=\"strip-img\" data-bg=\"images/your_strip.png\" data-bg-size=\"400% auto\" data-bg-position=\"0% 50%\"></div>\n  </div>\n  <div class=\"strip-panel\" data-step=\"2\" data-step-fx=\"slide-left\">\n    <div class=\"strip-img\" data-bg=\"images/your_strip.png\" data-bg-size=\"400% auto\" data-bg-position=\"33.33% 50%\"></div>\n  </div>\n</div>", "height": 300}, {"name": "Timeline", "from": "The CNN arms race", "html": "<div class=\"timeline\">\n  <div class=\"tl-event\" style=\"left: 15%\" data-step=\"1\" data-step-fx=\"fade\">\n    <div class=\"tl-above\"><div class=\"tl-year\">2012</div></div>\n    <div class=\"tl-dot\"></div>\n    <div class=\"tl-below\"><div class=\"tl-name\">AlexNet</div><div class=\"tl-sub\">61M params</div></div>\n  </div>\n  <div class=\"tl-event\" style=\"left: 85%\" data-step=\"2\" data-step-fx=\"fade\">\n    <div class=\"tl-above\"><div class=\"tl-year\">2019</div></div>\n    <div class=\"tl-dot\"></div>\n    <div class=\"tl-below\"><div class=\"tl-name\">GPipe</div><div class=\"tl-sub\">557M params</div></div>\n  </div>\n</div>", "height": 330}, {"name": "Data table", "from": "Results tables", "html": "<table class=\"data-table compact\">\n  <thead><tr><th>Model</th><th>Top-1</th><th>#Params</th></tr></thead>\n  <tbody>\n    <tr class=\"row-group\"><td>Our model</td><td>77.1%</td><td>5.3M</td></tr>\n    <tr class=\"row-muted\"><td>Baseline</td><td>76.0%</td><td>26M</td></tr>\n    <tr class=\"row-group row-hl row-marker\" data-step=\"1\"><td>Highlighted row</td><td>84.3%</td><td>66M</td></tr>\n  </tbody>\n</table>\n<div class=\"table-note\">Footnote below the table.</div>"}, {"name": "Two columns", "from": "Transfer learning + logo", "html": "<div class=\"cols\">\n  <div class=\"col\">\n    <div class=\"ld-row\" data-step=\"1\"><div class=\"label\">Option A</div><div class=\"desc\">Left column text.</div></div>\n    <div class=\"ld-row\" data-step=\"2\"><div class=\"label\">Option B</div><div class=\"desc\">More text.</div></div>\n  </div>\n  <div class=\"col-fixed\" data-step=\"0\"><img src=\"images/your_logo.png\" width=\"800\" height=\"800\" style=\"width: 300px\" alt=\"\"></div>\n</div>", "height": 330}, {"name": "Bullets with sub-items + punchline", "from": "Transfer learning results", "html": "<ul class=\"bullets\">\n  <li data-step=\"1\">Main statement with a <mark>highlighted phrase</mark></li>\n  <li class=\"sub\" data-step=\"1\">Sub-point</li>\n</ul>\n<div class=\"punchline\" data-step=\"2\"><u>The</u> one-line conclusion</div>"}, {"name": "Text helpers and math", "from": "Title marks, depth/width/resolution colouring", "html": "<p class=\"subtitle\">A subtitle line under the title</p>\n<p><span class=\"title-mark\">title-mark</span> · <span class=\"accent-1\">accent-1</span> · <span class=\"accent-2\">accent-2</span> ·\n   <span class=\"accent-3\">accent-3</span> · <span class=\"accent-4\">accent-4</span> · <mark>mark</mark> · <span class=\"muted\">muted</span></p>\n<p>Inline math $x^2$, display math $$\\sum_i x_i$$ and a literal dollar sign: \\$5.</p>"}];
   const ANIM_READY_MS = 1500;   // after an animation iframe's load event, a `ready` must have arrived …
   const ANIM_TOTAL_MS = 4000;   // … and at the latest this long after its src was set (SPEC §9.5)
   const QUEUE_STEP_MS = 5000;   // a queued iframe that never fires `load` no longer blocks the queue
@@ -438,7 +627,7 @@ SOFTWARE.
   function warn(message, where = {}) {
     const slide = where.slide !== undefined ? where.slide : slideIndexOf(where.el);
     problems.push({ message, slide: slide === undefined ? null : slide,
-                    el: where.el || null, step: where.step || null });
+                    el: where.el || null, step: where.step ?? null });
     warnings.push(message);
     if (where.el) console.warn('[deck] ' + message, where.el);
     else console.warn('[deck] ' + message);
@@ -447,7 +636,7 @@ SOFTWARE.
 
   /** First step at which `el` is visible: the latest start of the step layers around it. */
   function firstVisibleStep(el) {
-    let step = 1;
+    let step = 0;
     for (let n = el; n && n.parentElement && n.parentElement.id !== 'deck'; n = n.parentElement) {
       const range = layerRanges.get(n);
       if (range) step = Math.max(step, range[0]);
@@ -455,11 +644,11 @@ SOFTWARE.
     return step;
   }
 
-  /** Step at which a problem becomes visible (R6-4): explicit step, else its element's step, else 1. */
+  /** Step at which a problem becomes visible (R6-4): explicit step, else its element's step, else 0. */
   function problemStep(p) {
-    if (p.step) return p.step;
+    if (p.step !== null && p.step !== undefined) return p.step;
     if (p.el && p.el.isConnected) return firstVisibleStep(p.el);
-    return 1;
+    return 0;
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
@@ -560,24 +749,24 @@ SOFTWARE.
 
   // ── Steps (SPEC §8.3) ─────────────────────────────────────────────────────
 
-  /** "3" → [3, ∞]; "2..4" → [2, 4]; anything invalid → null. */
+  /** Steps are 0-based (R10-1): "3" → [3, ∞]; "2..4" → [2, 4]; "0" = with the title; invalid → null. */
   function parseRange(value) {
     const m = /^\s*(\d+)\s*(?:\.\.\s*(\d+)\s*)?$/.exec(String(value));
     if (!m) return null;
     const from = Number(m[1]);
     const to = m[2] === undefined ? Infinity : Number(m[2]);
-    return from >= 1 && to >= from ? [from, to] : null;
+    return from >= 0 && to >= from ? [from, to] : null;
   }
 
   function inRange(step, range) {
     return step >= range[0] && step <= range[1];
   }
 
-  /** Unmarked content (R9-1): step 1 shows only the slide title, steps 2…k show what is explicitly
-      assigned to them, and one final step k+1 reveals everything that was not assigned to a step.
-      Collects the unmarked content subtrees; a container that holds explicitly stepped elements
-      stays structural and the search continues inside it, so `data-step="1"` anywhere still means
-      "visible from the start". */
+  /** Unmarked content (R9-1, 0-based since R10-1): step 0 shows the slide title, steps 1…k show
+      what is explicitly assigned to them, and one final step k+1 reveals everything that was not
+      assigned to a step. Collects the unmarked content subtrees; a container that holds explicitly
+      stepped elements stays structural and the search continues inside it, so `data-step="0"`
+      anywhere still means "visible from the start". */
   function unmarkedContent(container, found = []) {
     for (const child of container.children) {
       if (NOT_CONTENT.has(child.tagName) || child.classList.contains('slide-title')) continue;
@@ -592,7 +781,7 @@ SOFTWARE.
     const { el } = slide;
     const where = `slide ${slide.index + 1} ("${slide.id}")`;
     const at = extra => ({ slide: slide.index, ...extra });
-    let highest = 1;
+    let highest = 0;   // highest step index referenced; steps run 0 … N-1
     const note = range => { highest = Math.max(highest, range[0], isFinite(range[1]) ? range[1] : 0); };
 
     if (el.querySelector('section')) warn(`${where}: nested <section> elements are not supported`, at());
@@ -630,24 +819,25 @@ SOFTWARE.
       }
     }
 
-    let N = highest;
+    let N = highest + 1;   // number of steps
     if (el.dataset.steps !== undefined) {
       const declared = Number(el.dataset.steps);
       if (!Number.isInteger(declared) || declared < 1) {
         warn(`${where}: invalid data-steps="${el.dataset.steps}" (positive integer expected)`, at());
       } else {
-        if (declared < highest) warn(`${where}: data-steps="${declared}" is lower than the highest step used (${highest})`, at());
-        N = Math.max(declared, highest);
+        if (declared < N) warn(`${where}: data-steps="${declared}" is lower than the number of steps used (${N})`, at());
+        N = Math.max(declared, N);
       }
     }
     if (unmarked.length) {   // the final step: everything not assigned to a numbered step
+      const final = N;
       N += 1;
       for (const child of unmarked) {
-        child.setAttribute('data-step', String(N));
+        child.setAttribute('data-step', String(final));
         child.setAttribute('data-step-implicit', '');
         child.classList.add('step-layer', 'fx-rise');
-        slide.layers.push({ el: child, range: [N, Infinity] });
-        layerRanges.set(child, [N, Infinity]);
+        slide.layers.push({ el: child, range: [final, Infinity] });
+        layerRanges.set(child, [final, Infinity]);
       }
     }
     slide.N = N;
@@ -826,7 +1016,7 @@ SOFTWARE.
       if (el.dataset.bgColor) el.style.backgroundColor = el.dataset.bgColor;
       return {
         el, index, type, id: el.id, zone: type === 'black' ? 'main' : zone, number, label,
-        title: '', N: 1, layers: [], classRules: [], step: 1, visited: false, rendered: false,
+        title: '', N: 1, layers: [], classRules: [], step: 0, visited: false, rendered: false,
       };
     });
 
@@ -1001,7 +1191,7 @@ SOFTWARE.
   function show(index, how) {
     const slide = slides[index];
     if (!slide.visited) {
-      slide.step = how === 'back' ? slide.N : 1;
+      slide.step = how === 'back' ? slide.N - 1 : 0;
       slide.visited = true;
     }
     const previous = slides[state.current];
@@ -1022,7 +1212,7 @@ SOFTWARE.
   function next() {
     if (isBlocked()) return false;
     const slide = slides[state.current];
-    if (slide.step < slide.N) { slide.step++; renderSlide(slide); return true; }
+    if (slide.step < slide.N - 1) { slide.step++; renderSlide(slide); return true; }
     if (state.current < slides.length - 1) { show(state.current + 1, 'forward'); return true; }
     return false;
   }
@@ -1030,7 +1220,7 @@ SOFTWARE.
   function prev() {
     if (isBlocked()) return false;
     const slide = slides[state.current];
-    if (slide.step > 1) { slide.step--; renderSlide(slide); return true; }
+    if (slide.step > 0) { slide.step--; renderSlide(slide); return true; }
     if (state.current > 0) { show(state.current - 1, 'back'); return true; }
     return false;
   }
@@ -1045,7 +1235,7 @@ SOFTWARE.
     return target;
   }
 
-  /** Jump to a slide by 0-based index or by id; optionally set its step (clamped to 1…N). */
+  /** Jump to a slide by 0-based index or by id; optionally set its step (0-based, clamped to 0…N-1). */
   function goTo(target, step) {
     const index = resolveIndex(target);
     if (!Number.isInteger(index) || index < 0 || index >= slides.length) {
@@ -1054,7 +1244,7 @@ SOFTWARE.
     }
     if (step !== undefined) {
       const slide = slides[index];
-      slide.step = Math.min(slide.N, Math.max(1, Math.round(Number(step)) || 1));
+      slide.step = Math.min(slide.N - 1, Math.max(0, Math.round(Number(step)) || 0));
       slide.visited = true;
     }
     show(index, 'jump');
@@ -1390,7 +1580,7 @@ SOFTWARE.
   function stepFor(index) {
     if (!DEV) return undefined;
     const list = slideProblems(index);
-    return list.length ? Math.min(list[0].at, slides[index].N) : undefined;
+    return list.length ? Math.min(list[0].at, slides[index].N - 1) : undefined;
   }
 
   function revealRow(panel, row) {
@@ -1491,7 +1681,195 @@ SOFTWARE.
     setTimeout(() => { renderDates(); scheduleMidnightRefresh(); }, nextDay - now);
   }
 
+  // ── Code highlighting (SPEC §14): <pre class="code-block" data-lang="python"> ──
+  // Hand-coloured blocks (containing token spans) are left alone.
+
+  const PY_KEYWORDS = new Set(('False None True and as assert async await break class continue def del elif ' +
+    'else except finally for from global if import in is lambda nonlocal not or pass raise return try ' +
+    'while with yield self cls').split(' '));
+  const PY_TOKEN = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(\b\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?j?\b)|([A-Za-z_]\w*)|([\s\S])/g;
+  const PY_AFTER = /\s*(\(|=(?!=))?/y;
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  }
+
+  function highlightPython(src) {
+    let out = '', depth = 0, m;
+    PY_TOKEN.lastIndex = 0;
+    while ((m = PY_TOKEN.exec(src))) {
+      const [tok, comment, str, num, ident] = m;
+      const span = cls => `<span class="${cls}">${escapeHtml(tok)}</span>`;
+      if (comment) out += span('cc');
+      else if (str) out += span('cs');
+      else if (num) out += span('cn');
+      else if (ident) {
+        PY_AFTER.lastIndex = PY_TOKEN.lastIndex;
+        const next = PY_AFTER.exec(src)[1];
+        if (PY_KEYWORDS.has(ident)) out += span('ck');
+        else if (next === '(') out += span('cf');
+        else if (next && depth > 0) out += span('ca');   // keyword argument inside a call
+        else out += escapeHtml(tok);
+      } else {
+        if ('([{'.includes(tok)) depth++;
+        else if (')]}'.includes(tok)) depth = Math.max(0, depth - 1);
+        out += escapeHtml(tok);
+      }
+    }
+    return out;
+  }
+
+  function highlightCode(root, quiet) {
+    for (const el of root.querySelectorAll('[data-lang]')) {
+      const lang = el.dataset.lang.toLowerCase();
+      if (lang !== 'python' && lang !== 'py') {
+        if (!quiet) warn(`code language "${lang}" is not coloured automatically (only python); use the token classes .ck .cf .ca .cn .cs .cc`, { el });
+        continue;
+      }
+      if (el.children.length) continue;
+      el.innerHTML = highlightPython(el.textContent);
+    }
+  }
+
+  // ── Sample image for component previews ──────────────────────────────────
+
+  /** Neutral stand-in image for component previews (the snippets' image paths are examples). */
+  function sampleImageSvg(width, height) {
+    const W = Math.max(1, Math.round(width)), H = Math.max(1, Math.round(height));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+      `<rect width="${W}" height="${H}" fill="#e9edf3"/><path d="M0 ${H} L${W * 0.35} ${H * 0.45} L${W * 0.6} ${H * 0.75} L${W * 0.78} ${H * 0.55} L${W} ${H}Z" fill="#c9d3e1"/></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  // ── ?dev "Components" button + panel (SPEC §12.8, decision R11-1) ────────
+  // A catalog of the built-in components, so slides reuse them instead of inventing new ones.
+  // Each entry: title, origin, a live example scaled to the panel width, and its HTML (folded).
+
+  let compPanel = null, compButton = null;
+
+  function buildComponentsPanel() {
+    compPanel = createOverlay('comp-overlay', 'Components', () => {
+      if (!compPanel.list.childElementCount) renderComponentList(compPanel.list);
+    });
+    compPanel.panel.classList.add('wide');
+    compPanel.list.classList.add('comp-list');
+    compButton = h('button', 'top-btn', '▦ Components');
+    compButton.id = 'comp-btn';
+    compButton.type = 'button';
+    compButton.addEventListener('click', () => toggleOverlay(compPanel));
+    topbar.insertBefore(compButton, navButton);   // [▶ Animation] [▦ Components] [☰ Slides]
+  }
+
+  function renderComponentList(list) {
+    // Examples are laid out at the real content width of a slide, then scaled to the panel.
+    const stageWidth = cfg.canvas.width - 2 * 63 + 2 * 22.5;
+    for (const c of COMPONENTS) {
+      const item = h('div', 'comp-item');
+      const preview = h('div', 'comp-preview');
+      const stage = h('div', 'slide-content comp-stage');
+      stage.style.width = stageWidth + 'px';
+      if (c.height) stage.style.height = c.height + 'px';
+      stage.innerHTML = c.html;
+      for (const img of stage.querySelectorAll('img')) {
+        img.src = sampleImageSvg(Number(img.getAttribute('width')) || 1600, Number(img.getAttribute('height')) || 900);
+      }
+      for (const el of stage.querySelectorAll('[data-bg]')) {
+        el.style.backgroundImage = `url("${sampleImageSvg(400, 300)}")`;
+        el.style.backgroundSize = '100% 100%';
+      }
+      for (const el of stage.querySelectorAll('[data-step-class]')) {   // show the final state:
+        for (const rule of el.dataset.stepClass.trim().split(/\s+/)) {    // open-ended class rules on
+          const cut = rule.lastIndexOf(':');
+          if (cut > 0 && !rule.includes('..')) el.classList.add(rule.slice(0, cut));
+        }
+      }
+      highlightCode(stage, true);
+      if (typeof window.renderMathInElement === 'function') {
+        protectDollars(stage);
+        window.renderMathInElement(stage, { delimiters: MATH_DELIMITERS, throwOnError: false });
+        restoreDollars(stage);
+      }
+      preview.appendChild(stage);
+
+      const code = document.createElement('details');
+      code.className = 'comp-code';
+      const summary = h('summary', '', 'HTML');
+      const copy = h('button', 'comp-copy', 'Copy');
+      copy.type = 'button';
+      copy.addEventListener('click', () => copyText(c.html.trim(), copy));
+      code.append(summary, copy, h('pre', '', c.html.trim()));
+
+      item.append(h('div', 'comp-title', c.name), h('div', 'comp-from', 'from: ' + c.from), preview, code);
+      list.appendChild(item);
+    }
+    // Measure after all items exist (the panel's scrollbar changes the available width). The
+    // panel is laid out (only transparent) while it opens, so the examples can be measured.
+    for (const preview of list.querySelectorAll('.comp-preview')) {
+      const stage = preview.firstElementChild;
+      const scale = preview.clientWidth / stageWidth;
+      stage.style.transform = `scale(${scale})`;
+      preview.style.height = Math.ceil(stage.offsetHeight * scale) + 'px';
+    }
+  }
+
+  function copyText(text, button) {
+    const label = button.textContent;
+    const done = ok => {
+      button.textContent = ok ? 'Copied ✓' : 'Copy failed';
+      setTimeout(() => { button.textContent = label; }, 1500);
+    };
+    const fallback = () => {
+      const area = h('textarea');
+      area.value = text;
+      area.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      area.remove();
+      done(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), fallback);
+    else fallback();
+  }
+
   // ── Math ──────────────────────────────────────────────────────────────────
+
+  /** `\$` outside of formulas means a literal dollar sign (SPEC §13). Inside formulas `\$` is TeX
+      and stays untouched. */
+  function escapeDollarsOutsideMath(text) {
+    let out = '', i = 0, end = null;
+    while (i < text.length) {
+      if (end) {                                    // inside a formula
+        if (text[i] === '\\') { out += text.slice(i, i + 2); i += 2; continue; }
+        if (text.startsWith(end, i)) { out += end; i += end.length; end = null; continue; }
+        out += text[i++];
+        continue;
+      }
+      if (text.startsWith('\\$', i)) { out += DOLLAR; i += 2; continue; }
+      const open = ['$$', '$', '\\(', '\\['].find(d => text.startsWith(d, i));
+      if (open) { end = { '$$': '$$', '$': '$', '\\(': '\\)', '\\[': '\\]' }[open]; out += open; i += open.length; continue; }
+      out += text[i++];
+    }
+    return out;
+  }
+
+  function textNodes(root, skipSelector) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!skipSelector || !(n.parentElement && n.parentElement.closest(skipSelector))) nodes.push(n);
+    }
+    return nodes;
+  }
+
+  function protectDollars(root) {
+    for (const n of textNodes(root, MATH_IGNORE)) if (n.data.includes('\\$')) n.data = escapeDollarsOutsideMath(n.data);
+  }
+
+  function restoreDollars(root) {
+    for (const n of textNodes(root)) if (n.data.includes(DOLLAR)) n.data = n.data.split(DOLLAR).join('$');
+  }
 
   function renderMath() {
     if (typeof window.renderMathInElement !== 'function') {
@@ -1513,12 +1891,14 @@ SOFTWARE.
         failing.push({ math, error });
         return math;
       };
+      protectDollars(slide.el);
       window.renderMathInElement(slide.el, {
         delimiters: MATH_DELIMITERS,
         throwOnError: false,
         preProcess: check,
         errorCallback: (message, err) => warn(`formula error: ${message} ${err || ''}`.trim(), { slide: slide.index }),
       });
+      restoreDollars(slide.el);
       const rendered = [...slide.el.querySelectorAll('.katex, .katex-error')];
       const source = k => {
         const ann = k.querySelector('annotation[encoding="application/x-tex"]');
@@ -1566,7 +1946,7 @@ SOFTWARE.
     const target = resolveIndex(PARAMS.get('preview'));
     const index = Number.isInteger(target) && target >= 0 && target < slides.length ? target : 0;
     const slide = slides[index];
-    const step = PARAMS.has('step') ? Number(PARAMS.get('step')) : slide.N;
+    const step = PARAMS.has('step') ? Number(PARAMS.get('step')) : slide.N - 1;
     goTo(index, step);
   }
 
@@ -1581,6 +1961,7 @@ SOFTWARE.
       if (!PREVIEW) buildTopbar();
       if (DEV) buildBadge();
       parseSlides(deckEl);
+      highlightCode(deckEl);
       checkCssUrls();
       initImages(deckEl);
       initBackgrounds(deckEl);
@@ -1598,6 +1979,7 @@ SOFTWARE.
         document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
         buildNavigator();
+        if (DEV) buildComponentsPanel();
         buildAnimations();
         buildHint();
       }

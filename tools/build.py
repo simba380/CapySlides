@@ -1,7 +1,8 @@
 """Assemble the stand-alone templates from engine/ sources and vendored assets.
 
     python tools/build.py           write template/template_presentation.html,
-                                    template/template_animations.html, template/images/...
+                                    template/template_animations.html, template/images/...,
+                                    and examples/*/<name>_presentation.html from their .src.html
     python tools/build.py --check   exit 1 if template/ differs from a fresh build
 
 Everything a deck needs at runtime (fonts, KaTeX, engine CSS/JS) is inlined between
@@ -25,6 +26,8 @@ ROOT = Path(__file__).resolve().parent.parent
 ENGINE = ROOT / "engine"
 VENDOR = ENGINE / "vendor"
 TEMPLATE = ROOT / "template"
+EXAMPLES = ROOT / "examples"
+# Example decks: examples/<name>/<name>_presentation.src.html (+ images/) → <name>_presentation.html
 
 DECK_FONTS = ("Inter", "Fira Code")
 ANIM_FONTS = ("DM Sans", "DM Serif Display", "DM Mono")
@@ -73,7 +76,30 @@ def safe_style(css: str) -> str:
 
 
 def engine_source(name: str, version: str) -> str:
-    return text(ENGINE / name).replace("__ENGINE_VERSION__", version).strip("\n")
+    source = text(ENGINE / name).replace("__ENGINE_VERSION__", version).strip("\n")
+    if "__COMPONENT_CATALOG__" in source:
+        source = source.replace("__COMPONENT_CATALOG__", json.dumps(component_catalog(), ensure_ascii=False))
+    return source
+
+
+TEMPLATE_RE = re.compile(r'<template (?P<attrs>[^>]*)>\n?(?P<html>.*?)</template>', re.S)
+ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
+
+
+def component_catalog() -> list[dict]:
+    """engine/components.html → [{name, from, html, height?}] (the ?dev Components panel, SPEC §14)."""
+    entries = []
+    for m in TEMPLATE_RE.finditer(text(ENGINE / "components.html")):
+        attrs = dict(ATTR_RE.findall(m["attrs"]))
+        if "data-name" not in attrs or "data-from" not in attrs:
+            raise BuildError(f"engine/components.html: <template {m['attrs']}> needs data-name and data-from")
+        entry = {"name": attrs["data-name"], "from": attrs["data-from"], "html": m["html"].strip("\n")}
+        if "data-height" in attrs:   # canvas px height for components that fill the slide height
+            entry["height"] = int(attrs["data-height"])
+        entries.append(entry)
+    if not entries:
+        raise BuildError("engine/components.html: no <template data-name=… data-from=…> entries found")
+    return entries
 
 
 # ── vendor CSS / JS ──────────────────────────────────────────────────────────
@@ -230,6 +256,16 @@ def build_outputs() -> dict[str, bytes]:
     }
 
 
+def example_outputs() -> dict[str, bytes]:
+    """Return {path relative to examples/: content}: every *.src.html deck shell, built with the engine."""
+    version = engine_version()
+    outputs = {}
+    for src in sorted(EXAMPLES.glob("*/*_presentation.src.html")):
+        rel = src.relative_to(EXAMPLES).as_posix().replace(".src.html", ".html")
+        outputs[rel] = build_deck(text(src), version).encode("utf-8")
+    return outputs
+
+
 def write(outputs: dict[str, bytes], out_dir: Path) -> None:
     for rel, data in outputs.items():
         path = out_dir / rel
@@ -249,16 +285,19 @@ def main() -> int:
     args = ap.parse_args()
     try:
         outputs = build_outputs()
+        examples = example_outputs()
     except BuildError as e:
         print(f"build failed: {e}", file=sys.stderr)
         return 1
     if args.check:
-        files = stale(outputs, TEMPLATE)
+        files = [f"template/{rel}" for rel in stale(outputs, TEMPLATE)]
+        files += [f"examples/{rel}" for rel in stale(examples, EXAMPLES)]
         for rel in files:
-            print(f"stale: template/{rel}", file=sys.stderr)
+            print(f"stale: {rel}", file=sys.stderr)
         print("template up to date" if not files else "run: python tools/build.py")
         return 1 if files else 0
     write(outputs, TEMPLATE)
+    write(examples, EXAMPLES)
     return 0
 
 

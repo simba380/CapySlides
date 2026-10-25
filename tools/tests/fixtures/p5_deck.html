@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: math, code and components</title>
+  <script id="deck-config">
+    const DECK = {
+      title: 'P5 fixture',
+      course: { title: '000-0000-00L Testing', type: 'Seminar', semester: 'FS26' },
+      toc: ['Math and code'],
+      date: '01.02.2026',
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <section data-type="title"></section>
+    <section data-type="toc"></section>
+
+    <section data-type="content" id="math">
+      <h2 class="slide-title">Math</h2>
+      <p id="dollars" data-step="0">It costs \$5 and $x^2$ and \$10, inside math $a \$ b$ stays TeX.</p>
+      <p id="display" data-step="0">$$\int_0^1 x \, dx$$</p>
+      <pre class="code-block" id="code-dollar" data-step="0">echo \$HOME</pre>
+    </section>
+
+    <section data-type="content" id="code">
+      <h2 class="slide-title">Code</h2>
+      <pre class="code-block" id="py" data-lang="python" data-step="0">x = 1
+self.conv = nn.Conv2d(in_channels=3, name="a=b", eq == 2)  # done
+def f(): return None</pre>
+      <pre class="code-block" id="manual" data-lang="python" data-step="0"><span class="cf">kept</span>(x)</pre>
+      <pre class="code-block" id="rust" data-lang="rust" data-step="0">fn main() {}</pre>
+    </section>
+
+    <section data-type="black"></section>
+  </main>
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

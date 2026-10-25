@@ -129,21 +129,21 @@ class EngineTest(unittest.TestCase):
         """)
         # columns: step, b1, b2, b3, b-static, b-li-plain, b-li-one, b-li-three, b-gone
         self.assertEqual(r["basic"], [
-            [1, False, False, False, True, False, True, False, True],    # step 1: title + explicit step-1 only
-            [2, False, True, False, True, False, True, False, True],
-            [3, False, True, True, True, False, True, True, False],      # 1..2 layer removed again
-            [4, True, True, True, True, True, True, True, False],        # final step: all unmarked content
+            [0, False, False, False, True, False, True, False, True],    # step 0: title + explicit step-0 only
+            [1, False, True, False, True, False, True, False, True],
+            [2, False, True, True, True, False, True, True, False],      # 0..1 layer removed again
+            [3, True, True, True, True, True, True, True, False],        # final step: all unmarked content
         ])
         self.assertTrue(r["titleAlways"])
         self.assertTrue(r["listStructural"])
         self.assertEqual(r["implicit"], ["b1", "b-li-plain"])
         self.assertEqual(r["ranges"], [
-            [1, False, False, False, False],
-            [2, True, False, False, True],
-            [3, True, True, False, True],
-            [4, False, False, True, True],
+            [0, False, False, False, False],
+            [1, True, False, False, True],
+            [2, True, True, False, True],
+            [3, False, False, True, True],
         ])
-        self.assertEqual(r["classes"], [[1, False, False], [2, True, False], [3, False, True]])
+        self.assertEqual(r["classes"], [[0, False, False], [1, True, False], [2, False, True]])
         self.assertEqual(r["fx"], [["fx-fade"], ["fx-slide-left"], ["fx-none"], ["fx-rise"]])
 
     def test_navigation_state_machine_and_step_memory(self):
@@ -151,7 +151,7 @@ class EngineTest(unittest.TestCase):
           const o = {};
           o.start = st();
           o.prevAtStart = Deck.prev();
-          Deck.next(); Deck.next(); Deck.next();          // toc 1, toc 2 (list) -> basic (step 1)
+          Deck.next(); Deck.next(); Deck.next();          // toc 0, toc 1 (list) -> basic (step 0)
           o.enterForward = st();
           Deck.next(); Deck.next(); Deck.next(); Deck.next();   // basic 2, 3, 4 -> ranges 1
           Deck.next();                                    // ranges 2
@@ -159,7 +159,7 @@ class EngineTest(unittest.TestCase):
           o.backToVisited = st();
           Deck.next();                                    // -> ranges (visited: restore 1)
           o.forwardToVisited = st();
-          Deck.goTo('hooked');                            // unvisited jump -> step 1
+          Deck.goTo('hooked');                            // unvisited jump -> step 0
           o.jumpUnvisited = st();
           Deck.next(); Deck.next();                       // hooked 3
           Deck.goTo('basic'); Deck.goTo('hooked');        // jump to visited -> restore 3
@@ -172,7 +172,7 @@ class EngineTest(unittest.TestCase):
           Deck.prev();                                    // math (unvisited, entered backwards -> N=2)
           o.math = st();
           Deck.goTo('ranges', 99); o.clampHigh = st();
-          Deck.goTo('ranges', 0);  o.clampLow = st();
+          Deck.goTo('ranges', -3); o.clampLow = st();
           o.badGoTo = Deck.goTo('nope');
           Deck.goTo('app2');
           o.nextAtEnd = Deck.next();
@@ -183,24 +183,24 @@ class EngineTest(unittest.TestCase):
           o.warnings = Deck.warnings;
           return o;
         """)
-        self.assertEqual(r["start"], {"id": "slide-1", "step": 1, "label": "1"})
+        self.assertEqual(r["start"], {"id": "slide-1", "step": 0, "label": "1"})
         self.assertFalse(r["prevAtStart"])
-        self.assertEqual(r["enterForward"], {"id": "basic", "step": 1, "label": "3"})
-        self.assertEqual(r["backToVisited"], {"id": "basic", "step": 4, "label": "3"})
-        self.assertEqual(r["forwardToVisited"], {"id": "ranges", "step": 1, "label": "4"})
-        self.assertEqual(r["jumpUnvisited"], {"id": "hooked", "step": 1, "label": "6"})
-        self.assertEqual(r["jumpVisited"], {"id": "hooked", "step": 3, "label": "6"})
-        self.assertEqual(r["backUnvisited"], {"id": "app1", "step": 2, "label": "Appendix 1"})
-        self.assertEqual(r["black"], {"id": "slide-8", "step": 1, "label": ""})
-        self.assertEqual(r["math"], {"id": "math", "step": 2, "label": "7"})
-        self.assertEqual(r["clampHigh"]["step"], 4)
-        self.assertEqual(r["clampLow"]["step"], 1)
+        self.assertEqual(r["enterForward"], {"id": "basic", "step": 0, "label": "3"})
+        self.assertEqual(r["backToVisited"], {"id": "basic", "step": 3, "label": "3"})
+        self.assertEqual(r["forwardToVisited"], {"id": "ranges", "step": 0, "label": "4"})
+        self.assertEqual(r["jumpUnvisited"], {"id": "hooked", "step": 0, "label": "6"})
+        self.assertEqual(r["jumpVisited"], {"id": "hooked", "step": 2, "label": "6"})
+        self.assertEqual(r["backUnvisited"], {"id": "app1", "step": 1, "label": "Appendix 1"})
+        self.assertEqual(r["black"], {"id": "slide-8", "step": 0, "label": ""})
+        self.assertEqual(r["math"], {"id": "math", "step": 1, "label": "7"})
+        self.assertEqual(r["clampHigh"]["step"], 3)
+        self.assertEqual(r["clampLow"]["step"], 0)
         self.assertFalse(r["badGoTo"])
         self.assertFalse(r["nextAtEnd"])
         self.assertEqual(r["end"]["id"], "app2")
         # hook: [step, first, N, preview] for every render of 'hooked'
-        self.assertEqual(r["hookCalls"], [[1, True, 5, False], [2, False, 5, False], [3, False, 5, False],
-                                          [3, False, 5, False]])
+        self.assertEqual(r["hookCalls"], [[0, True, 5, False], [1, False, 5, False], [2, False, 5, False],
+                                          [2, False, 5, False]])
         self.assertEqual(r["activeCount"], 1)
         self.assertTrue(r["inertOthers"])
         self.assertEqual(r["warnings"], ['Deck.goTo: no slide "nope"'])
@@ -209,30 +209,30 @@ class EngineTest(unittest.TestCase):
         r = probe("steps_deck-keys", """
           const o = { forward: {}, back: {} };
           for (const k of ['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'End']) {
-            Deck.goTo('basic', 1);
+            Deck.goTo('basic', 0);
             const notPrevented = key(k);
             o.forward[k] = [Deck.state.step, notPrevented];
           }
           for (const k of ['ArrowLeft', 'ArrowUp', 'PageUp', 'Home']) {
-            Deck.goTo('basic', 2); key(k); o.back[k] = Deck.state.step;
+            Deck.goTo('basic', 1); key(k); o.back[k] = Deck.state.step;
           }
-          Deck.goTo('basic', 1); key('End', { ctrlKey: true }); o.ctrlEnd = Deck.state.step;
-          Deck.goTo('basic', 2); key('ArrowLeft', { altKey: true }); o.altLeft = Deck.state.step;
-          Deck.goTo('basic', 2); key('ArrowLeft', { metaKey: true }); o.metaLeft = Deck.state.step;
-          Deck.goTo('basic', 1); key('x'); o.otherKey = Deck.state.step;
+          Deck.goTo('basic', 0); key('End', { ctrlKey: true }); o.ctrlEnd = Deck.state.step;
+          Deck.goTo('basic', 1); key('ArrowLeft', { altKey: true }); o.altLeft = Deck.state.step;
+          Deck.goTo('basic', 1); key('ArrowLeft', { metaKey: true }); o.metaLeft = Deck.state.step;
+          Deck.goTo('basic', 0); key('x'); o.otherKey = Deck.state.step;
           const input = document.createElement('input'); document.body.appendChild(input); input.focus();
-          Deck.goTo('basic', 1); key('ArrowRight', {}, input); o.inInput = Deck.state.step;
+          Deck.goTo('basic', 0); key('ArrowRight', {}, input); o.inInput = Deck.state.step;
           return o;
         """)
         for k, (step, not_prevented) in r["forward"].items():
-            self.assertEqual(step, 2, k)
+            self.assertEqual(step, 1, k)
             self.assertFalse(not_prevented, f"{k} must call preventDefault")
-        self.assertEqual(r["back"], {"ArrowLeft": 1, "ArrowUp": 1, "PageUp": 1, "Home": 1})
-        self.assertEqual(r["ctrlEnd"], 2)
-        self.assertEqual(r["altLeft"], 2)
-        self.assertEqual(r["metaLeft"], 2)
-        self.assertEqual(r["otherKey"], 1)
-        self.assertEqual(r["inInput"], 1)
+        self.assertEqual(r["back"], {"ArrowLeft": 0, "ArrowUp": 0, "PageUp": 0, "Home": 0})
+        self.assertEqual(r["ctrlEnd"], 1)
+        self.assertEqual(r["altLeft"], 1)
+        self.assertEqual(r["metaLeft"], 1)
+        self.assertEqual(r["otherKey"], 0)
+        self.assertEqual(r["inInput"], 0)
 
     def test_canvas_scaling_and_letterbox(self):
         js = """
@@ -293,10 +293,10 @@ class EngineTest(unittest.TestCase):
             "the title slide must be the first slide",
             "the toc slide must be the second slide",
             "no black slide",
-            'invalid data-step="2..1"',
+            'invalid data-step="1..0"',
             'unknown data-step-fx="wobble"',
             'invalid data-step-class rule "hi"',
-            'data-steps="1" is lower than the highest step used (3)',
+            'data-steps="1" is lower than the number of steps used (3)',
             'unknown data-layout="sideways"',
             "has no title",
             'DECK.hooks["ghost"] does not match any slide id',
@@ -326,8 +326,8 @@ class PreviewTest(unittest.TestCase):
         r = probe("steps_deck-preview", js, query="?preview=3")
         self.assertTrue(r["preview"])
         self.assertEqual(r["active"], ["ranges"])
-        self.assertEqual((r["state"]["id"], r["state"]["step"]), ("ranges", 4))   # final step
-        self.assertEqual(r["after"]["step"], 4)
+        self.assertEqual((r["state"]["id"], r["state"]["step"]), ("ranges", 3))   # final step
+        self.assertEqual(r["after"]["step"], 3)
         for part in ("topbar", "badge", "hint", "nav"):
             self.assertFalse(r[part], part)
         self.assertIn("deck-preview", r["cls"])
@@ -369,7 +369,7 @@ class NavigatorTest(unittest.TestCase):
               else setTimeout(poll, 100);
             }})();
           }});
-          Deck.goTo('basic', 3); Deck.goTo('math');
+          Deck.goTo('basic', 2); Deck.goTo('math');
           btn.click();
           o.open = $('nav-overlay').classList.contains('open');
           o.locked = Deck.state.locked;
@@ -380,7 +380,7 @@ class NavigatorTest(unittest.TestCase):
           btn.click(); $('nav-overlay').click();             // click on the backdrop
           o.backdropClosed = !$('nav-overlay').classList.contains('open');
           btn.click(); document.querySelector('#nav-overlay .deck-row[data-slide="2"]').click();
-          o.toVisited = st();                                 // basic was left at step 3
+          o.toVisited = st();                                 // basic was left at step 2
           btn.click(); document.querySelector('#nav-overlay .deck-row[data-slide="3"]').click();
           o.toUnvisited = st();
           o.closed = !$('nav-overlay').classList.contains('open');
@@ -405,14 +405,14 @@ class NavigatorTest(unittest.TestCase):
         self.assertTrue(r["keysBlocked"])
         self.assertTrue(r["escClosed"])
         self.assertTrue(r["backdropClosed"])
-        self.assertEqual(r["toVisited"], {"id": "basic", "step": 3, "label": "3"})
-        self.assertEqual(r["toUnvisited"], {"id": "ranges", "step": 1, "label": "4"})
+        self.assertEqual(r["toVisited"], {"id": "basic", "step": 2, "label": "3"})
+        self.assertEqual(r["toUnvisited"], {"id": "ranges", "step": 0, "label": "4"})
         self.assertTrue(r["closed"])
 
     def test_dev_problems_in_navigator(self):
         r = probe("broken_deck-nav-dev", f"""
           const o = {{}};
-          Deck.goTo('thrower');                                  // runs the throwing hook (step 1)
+          Deck.goTo('thrower');                                  // runs the throwing hook (step 0)
           o.red = $('nav-btn').classList.contains('has-problems');
           o.devBtn = !!$('dev-btn');
           $('nav-btn').click();
@@ -420,7 +420,7 @@ class NavigatorTest(unittest.TestCase):
           o.deckBox = {{ hidden: box.hidden, items: [...box.querySelectorAll('li')].map(li => li.textContent) }};
           o.rows = {self.ROWS};
           document.querySelector('#nav-overlay .deck-row[data-slide="5"]').click();
-          o.late = st();                                         // first problem at step 3
+          o.late = st();                                         // first problem at step 2
           $('nav-btn').click();
           document.querySelector('#nav-overlay .deck-row[data-slide="2"]').click();
           o.thrower = st();
@@ -440,21 +440,21 @@ class NavigatorTest(unittest.TestCase):
         steps = [int(p.split()[1]) for p in thrower["problems"]]
         self.assertEqual(steps, sorted(steps))                                  # sorted by step
         joined = "\n".join(thrower["problems"])
-        self.assertIn('step 1 · slide 3: unknown data-type="weird"', joined)
-        self.assertIn('step 2 · slide 3 ("thrower"): unknown data-step-fx="wobble"', joined)
-        self.assertIn("step 1 · DECK.hooks[\"thrower\"] threw: boom", joined)
-        self.assertIn('step 3 · formula error in "\\notacommand"', joined)       # unmarked paragraph: final step
+        self.assertIn('step 0 · slide 3: unknown data-type="weird"', joined)
+        self.assertIn('step 1 · slide 3 ("thrower"): unknown data-step-fx="wobble"', joined)
+        self.assertIn("step 0 · DECK.hooks[\"thrower\"] threw: boom", joined)
+        self.assertIn('step 2 · formula error in "\\notacommand"', joined)       # unmarked paragraph: final step
         self.assertEqual(rows[5]["problems"], [rows[5]["problems"][0]])
-        self.assertTrue(rows[5]["problems"][0].startswith('step 3 · formula error in "\\alsonotacommand"'))
-        self.assertEqual(r["late"], {"id": "late", "step": 3, "label": "6"})
-        self.assertEqual(r["thrower"]["step"], 1)
+        self.assertTrue(rows[5]["problems"][0].startswith('step 2 · formula error in "\\alsonotacommand"'))
+        self.assertEqual(r["late"], {"id": "late", "step": 2, "label": "6"})
+        self.assertEqual(r["thrower"]["step"], 0)
         late = [p for p in r["problems"] if p["slide"] == 5]
-        self.assertEqual([p["step"] for p in late], [3])
+        self.assertEqual([p["step"] for p in late], [2])
 
     def test_dev_clean_slide_uses_step_memory(self):
         r = probe("steps_deck-nav-dev", """
           const o = { red: $('nav-btn').classList.contains('has-problems') };
-          Deck.goTo('ranges', 3); Deck.goTo(0);
+          Deck.goTo('ranges', 2); Deck.goTo(0);
           $('nav-btn').click();
           o.deckBoxHidden = document.querySelector('#nav-overlay .nav-deck-problems').hidden;
           o.anyBad = !!document.querySelector('#nav-overlay .deck-row.has-problems');
@@ -465,7 +465,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertFalse(r["red"])
         self.assertTrue(r["deckBoxHidden"])
         self.assertFalse(r["anyBad"])
-        self.assertEqual(r["ranges"]["step"], 3)
+        self.assertEqual(r["ranges"]["step"], 2)
 
 
 @unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
@@ -534,7 +534,7 @@ class AssetsTest(unittest.TestCase):
     def test_missing_images_become_sized_placeholders(self):
         r = probe("assets_deck-imgs", self.IMG + """
           await new Promise(r => setTimeout(r, 300));
-          Deck.goTo('imgs', 3);
+          Deck.goTo('imgs', 2);
           const info = id => { const el = $(id); return {
             missing: el.hasAttribute('data-asset-missing'), box: box(el),
             svg: (el.getAttribute('src') || '').startsWith('data:image/svg+xml'),
@@ -557,10 +557,10 @@ class AssetsTest(unittest.TestCase):
         self.assertFalse(r["nosize"]["missing"])
         self.assertEqual(r["missNosize"]["box"], [480, 270])     # parent width at 16:9
         by_msg = {p["message"]: p["step"] for p in r["problems"]}
-        self.assertEqual(by_msg['image "missing_figure.png" not found (images/missing_figure.png)'], 1)
-        self.assertEqual(by_msg['image "late.png" not found (images/late.png)'], 3)
-        self.assertEqual(by_msg['image "nope.png" not found (images/nope.png)'], 2)
-        self.assertIn(1, [s for m, s in by_msg.items() if 'eth_zurich_aerial.png" has no width/height' in m])
+        self.assertEqual(by_msg['image "missing_figure.png" not found (images/missing_figure.png)'], 0)
+        self.assertEqual(by_msg['image "late.png" not found (images/late.png)'], 2)
+        self.assertEqual(by_msg['image "nope.png" not found (images/nope.png)'], 1)
+        self.assertIn(0, [s for m, s in by_msg.items() if 'eth_zurich_aerial.png" has no width/height' in m])
         self.assertTrue(any('"nope.png" has no width/height' in m for m in by_msg))
 
     def test_backgrounds_and_css_urls(self):
@@ -599,7 +599,7 @@ class AssetsTest(unittest.TestCase):
         self.assertEqual(r["header"], "rgb(26, 26, 26)")
         self.assertIn('image "eth_zurich_aerial.png" not found', r["bgLabel"])
         self.assertIn({"message": 'image "eth_zurich_aerial.png" not found (images/eth_zurich_aerial.png)',
-                       "slide": 0, "step": 1}, r["problems"])
+                       "slide": 0, "step": 0}, r["problems"])
 
     def test_remembered_size_for_image_without_attributes(self):
         # 1st open: image present, no width/height → its natural size is remembered (localStorage).
@@ -607,8 +607,8 @@ class AssetsTest(unittest.TestCase):
         page = fixture("steps_deck").replace(
             '<h2 class="slide-title">Basic steps</h2>',
             '<h2 class="slide-title">Basic steps</h2>'
-            '<img id="mem" data-step="1" src="images/remembered.png" style="width:352px">'
-            '<img id="never" data-step="1" src="images/never_seen.png" style="width:320px">')
+            '<img id="mem" data-step="0" src="images/remembered.png" style="width:352px">'
+            '<img id="never" data-step="0" src="images/never_seen.png" style="width:320px">')
         folder = browser.FIXTURES_OUT / "memory"
         (folder / "images").mkdir(parents=True, exist_ok=True)
         shutil.copy(browser.TEMPLATE_IMAGES / "eth_zurich_aerial.png", folder / "images" / "remembered.png")
@@ -635,7 +635,7 @@ class AssetsTest(unittest.TestCase):
           $('nav-btn').click();
           return [...document.querySelectorAll('#nav-overlay .deck-row[data-slide="2"] .row-problems li')].map(li => li.textContent);
         """, query="?dev")
-        self.assertIn('step 3 · image "late.png" not found (images/late.png)', r)
+        self.assertIn('step 2 · image "late.png" not found (images/late.png)', r)
 
 
 LEGACY_ANIMATION = """<!DOCTYPE html><html><body><p>legacy animation without the deck contract</p>
@@ -840,6 +840,117 @@ class AnimationTest(unittest.TestCase):
                    bars: document.querySelectorAll('#viz rect').length, phi: document.getElementById('phi-val').textContent };
         """, "template_animations-standalone", query="?phi=3")
         self.assertEqual(r, {"embedded": False, "katex": 1, "bars": 1 + 6, "phi": "3"})   # input + round(2*1.2^3 + 3) layers
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class MathAndCodeTest(unittest.TestCase):
+
+    def test_escaped_dollars_and_display_size(self):
+        r = probe("p5_deck-math", """
+          const p = $('dollars');
+          return {
+            text: [...p.childNodes].filter(n => n.nodeType === 3).map(n => n.data).join('|'),
+            katex: p.querySelectorAll('.katex').length,
+            tex: [...p.querySelectorAll('annotation')].map(a => a.textContent),
+            display: getComputedStyle($('display').querySelector('.katex-display > .katex')).fontSize,
+            inline: getComputedStyle(p.querySelector('.katex')).fontSize,
+            code: $('code-dollar').textContent,
+            warnings: Deck.warnings,
+          };
+        """)
+        self.assertEqual(r["warnings"], ["code language \"rust\" is not coloured automatically (only python); "
+                                         "use the token classes .ck .cf .ca .cn .cs .cc"])
+        self.assertIn("It costs $5 and ", r["text"])
+        self.assertIn(" and $10, inside math ", r["text"])
+        self.assertEqual(r["katex"], 2)
+        self.assertEqual(r["tex"], ["x^2", "a \\$ b"])
+        self.assertEqual(r["display"], "36px")                    # --fs-math
+        self.assertEqual(r["inline"], f"{27 * 1.21:.2f}".rstrip("0") + "px")   # KaTeX 1.21em of --fs-body
+        self.assertEqual(r["code"], "echo \\$HOME", "code blocks are left alone")
+
+    def test_python_highlighting(self):
+        r = probe("p5_deck-code", """
+          const spans = id => [...$(id).querySelectorAll('span')].map(s => [s.className, s.textContent]);
+          return { py: spans('py'), text: $('py').textContent, manual: $('manual').innerHTML, rust: $('rust').innerHTML };
+        """)
+        self.assertEqual(r["py"], [
+            ["cn", "1"], ["ck", "self"], ["cf", "Conv2d"], ["ca", "in_channels"], ["cn", "3"], ["ca", "name"],
+            ["cs", '"a=b"'], ["cn", "2"], ["cc", "# done"], ["ck", "def"], ["cf", "f"], ["ck", "return"], ["ck", "None"],
+        ])
+        self.assertTrue(r["text"].startswith("x = 1\nself.conv"), "text is unchanged, only wrapped")
+        self.assertEqual(r["manual"], '<span class="cf">kept</span>(x)', "hand-coloured blocks stay as written")
+        self.assertEqual(r["rust"], "fn main() {}")
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class ComponentsTest(unittest.TestCase):
+
+    def test_components_button_and_panel(self):
+        r = probe("steps_deck-components", """
+          const btn = $('comp-btn');
+          const o = { order: [...$('deck-topbar').children].map(b => b.id), label: btn.textContent };
+          btn.click();
+          o.open = $('comp-overlay').classList.contains('open');
+          o.wide = $('comp-overlay').querySelector('.deck-panel').classList.contains('wide');
+          o.inSlides = !!$('nav-overlay').querySelector('.comp-item');
+          const panel = $('comp-overlay').querySelector('.deck-panel').getBoundingClientRect();
+          o.items = [...document.querySelectorAll('#comp-overlay .comp-item')].map(item => {
+            const p = item.querySelector('.comp-preview').getBoundingClientRect();
+            const s = item.querySelector('.comp-stage').getBoundingClientRect();
+            return { title: item.querySelector('.comp-title').textContent, from: item.querySelector('.comp-from').textContent,
+                     h: p.height, fitsPreview: s.width <= p.width + 1, fitsPanel: p.right <= panel.right && p.left >= panel.left,
+                     folded: !item.querySelector('details').open, code: item.querySelector('pre').textContent.length };
+          });
+          o.glow = !!document.querySelector('#comp-overlay .hl-orange');
+          o.katex = document.querySelectorAll('#comp-overlay .katex').length;
+          key('ArrowRight'); o.locked = Deck.state.id === 'slide-1';
+          key('Escape'); o.closed = !$('comp-overlay').classList.contains('open');
+          return o;
+        """, query="?dev")
+        self.assertEqual(r["order"], ["anim-btn", "comp-btn", "nav-btn"])
+        self.assertEqual(r["label"], "▦ Components")
+        self.assertTrue(r["open"] and r["wide"])
+        self.assertFalse(r["inSlides"], "components are no longer part of the Slides panel")
+        names = [c["name"] for c in build.component_catalog()]
+        self.assertEqual([i["title"] for i in r["items"]], names)
+        for item in r["items"]:
+            with self.subTest(item["title"]):
+                self.assertTrue(item["from"].startswith("from: "))
+                self.assertGreater(item["h"], 40)
+                self.assertTrue(item["fitsPreview"] and item["fitsPanel"], "examples never overflow")
+                self.assertTrue(item["folded"])
+                self.assertGreater(item["code"], 20)
+        self.assertTrue(r["glow"], "open-ended data-step-class rules are shown (final state)")
+        self.assertGreater(r["katex"], 3)
+        self.assertTrue(r["locked"] and r["closed"])
+        r = probe("steps_deck-nocomponents", "return { btn: !!$('comp-btn'), overlay: !!$('comp-overlay') };")
+        self.assertEqual(r, {"btn": False, "overlay": False}, "Components is a ?dev authoring tool only")
+
+    def test_every_catalog_snippet_works_as_a_slide(self):
+        catalog = build.component_catalog()
+        sections = "\n".join(f'<section data-type="content" id="c{i}"><h2 class="slide-title">{c["name"]}</h2>\n{c["html"]}\n</section>'
+                             for i, c in enumerate(catalog))
+        shell = (FIXTURES / "p5_deck.html").read_text(encoding="utf-8")
+        start, end = shell.index('<section data-type="content" id="math">'), shell.index('<section data-type="black">')
+        page = build.build_deck(shell[:start] + sections + "\n" + shell[end:], build.engine_version())
+        r = probe("p5_deck-catalog", "await new Promise(r => setTimeout(r, 300)); return Deck.warnings;", page=page)
+        unexpected = [w for w in r if "not found (images/your_" not in w]
+        self.assertEqual(unexpected, [])
+
+    def test_showcase_and_template_have_no_warnings(self):
+        folder = browser.FIXTURES_OUT / "showcase"
+        shutil.copytree(build.EXAMPLES / "components" / "images", folder / "images", dirs_exist_ok=True)
+        page = (build.EXAMPLES / "components" / "components_presentation.html").read_text(encoding="utf-8")
+        r = probe("showcase", "await new Promise(r => setTimeout(r, 500)); return { w: Deck.warnings, s: Deck.slides.map(s => [s.id, s.N]) };",
+                  page=page, subdir="showcase")
+        self.assertEqual(r["w"], [])
+        steps = dict(r["s"])
+        self.assertEqual((steps["motivation"], steps["pimr"], steps["resolution"], steps["arms-race"], steps["constraints"]),
+                         (5, 4, 5, 4, 3))
+        r = probe("template", "return { w: Deck.warnings, t: Deck.slides.map(s => s.title) };",
+                  page=build.build_outputs()["template_presentation.html"].decode("utf-8"))
+        self.assertEqual(r["w"], [])
+        self.assertEqual(r["t"][2:], ["Slide 3 – title", "Slide 4 – title", "Slide 5 – title", "End", "Appendix 1 – title"])
 
 
 if __name__ == "__main__":

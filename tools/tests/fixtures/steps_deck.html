@@ -33,34 +33,34 @@
     <section data-type="content" id="basic">
       <h2 class="slide-title">Basic steps</h2>
       <p id="b1">Unmarked: appears at the final step</p>
-      <p id="b2" data-step="2">From step 2</p>
-      <p id="b3" data-step="3">From step 3</p>
-      <p id="b-static" data-step="1">Explicit step 1: visible from the start</p>
+      <p id="b2" data-step="1">From step 1</p>
+      <p id="b3" data-step="2">From step 2</p>
+      <p id="b-static" data-step="0">Explicit step 0: visible from the start</p>
       <ul id="b-list">
         <li id="b-li-plain">Unmarked item in a container with stepped items: final step</li>
-        <li id="b-li-one" data-step="1">Explicit step 1 inside an unmarked container</li>
-        <li id="b-li-three" data-step="3">Step 3</li>
+        <li id="b-li-one" data-step="0">Explicit step 0 inside an unmarked container</li>
+        <li id="b-li-three" data-step="2">Step 2</li>
       </ul>
-      <p id="b-gone" data-step="1..2">Shown in steps 1-2, removed at step 3</p>
+      <p id="b-gone" data-step="0..1">Shown in steps 0-1, removed at step 2</p>
     </section>
 
     <section data-type="content" id="ranges">
       <h2 class="slide-title">Ranges and effects</h2>
-      <p id="r-range" data-step="2..3">Steps 2 to 3</p>
-      <p id="r-only"  data-step="3..3">Only step 3</p>
-      <p id="r-late"  data-step="4" data-step-fx="fade">From step 4 (fade)</p>
-      <p id="r-slide" data-step="2" data-step-fx="slide-left">From step 2 (slide-left)</p>
-      <p id="r-none"  data-step="2" data-step-fx="none">From step 2 (no effect)</p>
+      <p id="r-range" data-step="1..2">Steps 1 to 2</p>
+      <p id="r-only"  data-step="2..2">Only step 2</p>
+      <p id="r-late"  data-step="3" data-step-fx="fade">From step 3 (fade)</p>
+      <p id="r-slide" data-step="1" data-step-fx="slide-left">From step 1 (slide-left)</p>
+      <p id="r-none"  data-step="1" data-step-fx="none">From step 1 (no effect)</p>
     </section>
 
     <section data-type="content" id="classes" data-layout="center">
-      <h2 class="slide-title"><span id="c-word" data-step-class="hi:2..2 bold:3">Highlighted</span> title word</h2>
-      <p>Class rules: .hi only at step 2, .bold from step 3</p>
+      <h2 class="slide-title"><span id="c-word" data-step-class="hi:1..1 bold:2">Highlighted</span> title word</h2>
+      <p>Class rules: .hi only at step 1, .bold from step 2</p>
     </section>
 
     <section data-type="content" id="hooked" data-steps="5" data-bg-color="#f5f3ee">
       <h2 class="slide-title">Hook-driven steps</h2>
-      <p id="hook-out" data-step="1"></p>
+      <p id="hook-out" data-step="0"></p>
     </section>
 
     <section data-type="content" id="math">
@@ -73,7 +73,7 @@
 
     <section data-type="content" id="app1">
       <h2 class="slide-title">Appendix with steps</h2>
-      <p id="a1" data-step="2">Appendix step 2</p>
+      <p id="a1" data-step="1">Appendix step 1</p>
     </section>
 
     <section data-type="animation" id="app2" data-anim="demo" data-title="Appendix animation"></section>

@@ -1,0 +1,147 @@
+<!-- Component catalog (SPEC §14). Source of truth for the snippets shown in the ?dev Slides panel
+     ("Components" section) and used by the authoring guide. tools/build.py injects every
+     <template> below into deck.js as COMPONENTS = [{ name, from, html, height? }] (?dev ▦ Components panel).
+     data-height = canvas px height of the example, for components that fill the slide height.
+     Each snippet must work pasted into a content <section>; styles live in engine/components.css.
+     Steps are 0-based: step 0 = title (+ data-step="0"), numbered steps 1, 2, … follow, unmarked content comes last. -->
+
+<template data-name="Numbered list" data-from="Motivation bullets">
+<ol class="num-list">
+  <li class="num-item" data-step="1">
+    <div><strong>First point:</strong><div class="num-sub">Explanation in a smaller, grey line.</div></div>
+  </li>
+  <li class="num-item" data-step="2">
+    <div><strong>Second point:</strong><div class="num-sub">Numbers are generated automatically.</div></div>
+  </li>
+</ol>
+</template>
+
+<template data-name="Label + description rows" data-from="Problem – Insight – Method – Result">
+<div class="ld-list">
+  <div class="ld-row" data-step="0"><div class="label">Problem:</div><div class="desc">What is wrong today.</div></div>
+  <div class="ld-row" data-step="1"><div class="label">Insight:</div><div class="desc">The key observation.</div></div>
+  <div class="ld-row" data-step="2"><div class="label">Method:</div><div class="desc">What the paper does.</div></div>
+</div>
+</template>
+
+<template data-name="Title with a word highlighted per step" data-from="Problem – Insight – Method – Result title">
+<h2 class="step-title slide-title">
+  <span data-step-class="hi:0..0">Problem</span> –
+  <span data-step-class="hi:1..1">Insight</span> –
+  <span data-step-class="hi:2..2">Method</span>
+</h2>
+</template>
+
+<template data-name="Code block (Python, coloured automatically)" data-from="Motivation code line">
+<pre class="code-block" data-lang="python">self.conv = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3)  # comment</pre>
+</template>
+
+<template data-name="Code block with step highlights" data-from="Motivation code line (underline glows)">
+<pre class="code-block"><span class="ck">self</span>.conv = nn.<span class="cf" data-step-class="hl-orange:1">Conv2d</span>(<span class="ca" data-step-class="hl-teal:2">in_channels</span>=<span class="cn">3</span>)</pre>
+</template>
+
+<template data-name="Formula box" data-from="Compound scaling formula">
+<div class="formula-box">$d = \alpha^\phi,\; w = \beta^\phi,\; r = \gamma^\phi$</div>
+<div class="formula-box large" data-step="1">$$\alpha \cdot \beta^2 \cdot \gamma^2 \approx 2$$</div>
+</template>
+
+<template data-name="Info box" data-from="Constraints: “FLOPS scale differently”">
+<div class="info-box">
+  <div><strong>FLOPS scale differently per dimension:</strong></div>
+  <ul>
+    <li>Doubling <strong class="accent-1">depth</strong> → FLOPS ×2</li>
+    <li>Doubling <strong class="accent-2">width</strong> → FLOPS ×4</li>
+  </ul>
+</div>
+</template>
+
+<template data-name="Conclusion box" data-from="Constraints: “Each ϕ step → FLOPS × 2^ϕ”">
+<div class="conclusion-box">Each $\phi$ step → total FLOPS × $2^\phi$</div>
+</template>
+
+<template data-name="Takeaway sections" data-from="Key takeaways, Outlook">
+<div class="takeaways">
+  <div class="tk-section">
+    <div class="tk-header" data-step="1">First takeaway:</div>
+    <div class="tk-sub" data-step="1">Supporting detail.</div>
+    <div class="tk-sub" data-step="2">Another detail.</div>
+  </div>
+  <div class="tk-section borderless">
+    <div class="tk-header" data-step="3">Section without a frame:</div>
+    <div class="tk-sub" data-step="3">Detail.</div>
+  </div>
+</div>
+</template>
+
+<template data-name="Figure with overlay line and label" data-height="560" data-from="Observation 1 (ceiling line)">
+<div class="figure-wrap" data-step="0">
+  <div class="figure">
+    <img src="images/your_figure.png" width="1600" height="720" alt="">
+    <div class="overlay-line" style="top: 16%; left: 6.5%; right: 1%" data-step="1" data-step-fx="fade"></div>
+    <div class="overlay-label" style="top: 9%" data-step="1" data-step-fx="fade">~80% ceiling</div>
+  </div>
+</div>
+</template>
+
+<template data-name="Image strip (sprite panels)" data-height="300" data-from="Importance of resolution (4 panels)">
+<div class="image-strip">
+  <div class="strip-panel" data-step="1" data-step-fx="slide-left">
+    <div class="strip-img" data-bg="images/your_strip.png" data-bg-size="400% auto" data-bg-position="0% 50%"></div>
+  </div>
+  <div class="strip-panel" data-step="2" data-step-fx="slide-left">
+    <div class="strip-img" data-bg="images/your_strip.png" data-bg-size="400% auto" data-bg-position="33.33% 50%"></div>
+  </div>
+</div>
+</template>
+
+<template data-name="Timeline" data-height="330" data-from="The CNN arms race">
+<div class="timeline">
+  <div class="tl-event" style="left: 15%" data-step="1" data-step-fx="fade">
+    <div class="tl-above"><div class="tl-year">2012</div></div>
+    <div class="tl-dot"></div>
+    <div class="tl-below"><div class="tl-name">AlexNet</div><div class="tl-sub">61M params</div></div>
+  </div>
+  <div class="tl-event" style="left: 85%" data-step="2" data-step-fx="fade">
+    <div class="tl-above"><div class="tl-year">2019</div></div>
+    <div class="tl-dot"></div>
+    <div class="tl-below"><div class="tl-name">GPipe</div><div class="tl-sub">557M params</div></div>
+  </div>
+</div>
+</template>
+
+<template data-name="Data table" data-from="Results tables">
+<table class="data-table compact">
+  <thead><tr><th>Model</th><th>Top-1</th><th>#Params</th></tr></thead>
+  <tbody>
+    <tr class="row-group"><td>Our model</td><td>77.1%</td><td>5.3M</td></tr>
+    <tr class="row-muted"><td>Baseline</td><td>76.0%</td><td>26M</td></tr>
+    <tr class="row-group row-hl row-marker" data-step="1"><td>Highlighted row</td><td>84.3%</td><td>66M</td></tr>
+  </tbody>
+</table>
+<div class="table-note">Footnote below the table.</div>
+</template>
+
+<template data-name="Two columns" data-height="330" data-from="Transfer learning + logo">
+<div class="cols">
+  <div class="col">
+    <div class="ld-row" data-step="1"><div class="label">Option A</div><div class="desc">Left column text.</div></div>
+    <div class="ld-row" data-step="2"><div class="label">Option B</div><div class="desc">More text.</div></div>
+  </div>
+  <div class="col-fixed" data-step="0"><img src="images/your_logo.png" width="800" height="800" style="width: 300px" alt=""></div>
+</div>
+</template>
+
+<template data-name="Bullets with sub-items + punchline" data-from="Transfer learning results">
+<ul class="bullets">
+  <li data-step="1">Main statement with a <mark>highlighted phrase</mark></li>
+  <li class="sub" data-step="1">Sub-point</li>
+</ul>
+<div class="punchline" data-step="2"><u>The</u> one-line conclusion</div>
+</template>
+
+<template data-name="Text helpers and math" data-from="Title marks, depth/width/resolution colouring">
+<p class="subtitle">A subtitle line under the title</p>
+<p><span class="title-mark">title-mark</span> · <span class="accent-1">accent-1</span> · <span class="accent-2">accent-2</span> ·
+   <span class="accent-3">accent-3</span> · <span class="accent-4">accent-4</span> · <mark>mark</mark> · <span class="muted">muted</span></p>
+<p>Inline math $x^2$, display math $$\sum_i x_i$$ and a literal dollar sign: \$5.</p>
+</template>

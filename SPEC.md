@@ -94,6 +94,7 @@ CustomPresentations/
 ├── engine/                         ← SOURCE OF TRUTH for the engine (edit here, never in decks)
 │   ├── deck.css                    ← frame, chrome, navigator, steps, placeholders
 │   ├── components.css              ← component library (§14)
+│   ├── components.html             ← component snippets (catalog for the ?dev panel + docs)
 │   ├── deck.js                     ← runtime
 │   ├── anim-contract.js            ← snippet for animation files (§9.5)
 │   ├── VERSION                     ← engine version (semver), stamped into every marker
@@ -112,6 +113,7 @@ CustomPresentations/
 │   ├── update.py                   ← replaces the engine block in an existing deck
 │   ├── image_sizes.py              ← writes <img> width/height from the image files
 │   └── new.py                      ← scaffolds a new presentation folder
+├── examples/components/           ← showcase deck: *.src.html (edit) + images/ → built *_presentation.html
 ├── template/
 │   ├── template_presentation.html  ← built artefact: copy this to start a talk
 │   ├── template_animations.html    ← built artefact: starter animation with the contract
@@ -259,13 +261,14 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
 
 ### 8.3 Step model
 - Every slide has `N ≥ 1` steps. `N` = the highest step number referenced inside the slide, or the value of `data-steps="N"` on the section (needed when only a hook uses the steps).
-- **Step model (decision R9‑1, replaces R5‑1):**
-  - **Step 1** shows the slide title plus everything explicitly marked `data-step="1"`.
-  - **Steps 2 … k** show what is explicitly assigned to them (`data-step`, `data-step-class`). Steps are cumulative; a range can also remove an element again (`data-step="1..2"` disappears at step 3).
+- **Step model (decisions R9‑1, R10‑1 — steps are 0‑based):**
+  - **Step 0** shows the slide title plus everything explicitly marked `data-step="0"`.
+  - **Steps 1 … k** show what is explicitly assigned to them (`data-step`, `data-step-class`). Steps are cumulative; a range can also remove an element again (`data-step="0..1"` disappears at step 2).
   - **One final step k + 1** ("step ∞") reveals all **unmarked** content, i.e. everything not assigned to a numbered step. If every element is assigned, there is no extra final step.
-  - So a slide without any numbered steps has two steps: title → everything. A slide with only a title has one step. Explicit steps can start at 1 (`data-step` ≥ 1).
-- The slide title (`.slide-title`) is always visible. Precisely: inside the content frame, every element without `data-step` that contains no stepped descendant is an unmarked layer (it gets `data-step="k+1"` and `data-step-implicit`). An unmarked element that *does* contain stepped descendants stays a structural container and the rule continues inside it, e.g. in `<ul><li>A</li><li data-step="1">B</li><li data-step="3">C</li></ul>` B shows at step 1, C at 3 and A at the final step 4.
-- The rule applies to `content` and `toc` slides (the generated TOC list appears at step 2), not to `title`, `black` or `animation` slides. `data-steps="N"` raises k (for hook-driven slides); unmarked content then appears at N + 1.
+  - So a slide without any numbered steps has two steps: title (0) → everything (1). A slide with only a title has the single step 0.
+- The slide title (`.slide-title`) is always visible. Precisely: inside the content frame, every element without `data-step` that contains no stepped descendant is an unmarked layer (it gets `data-step="k+1"` and `data-step-implicit`). An unmarked element that *does* contain stepped descendants stays a structural container and the rule continues inside it, e.g. in `<ul><li>A</li><li data-step="0">B</li><li data-step="2">C</li></ul>` B shows at step 0, C at 2 and A at the final step 3.
+- The rule applies to `content` and `toc` slides (the generated TOC list appears at step 1), not to `title`, `black` or `animation` slides. `data-steps="N"` declares the **number** of steps (0 … N‑1) for hook-driven slides; unmarked content then appears at step N.
+- Everywhere steps are shown or passed they are 0‑based: `Deck.goTo(slide, step)`, `Deck.state.step`, `?preview=…&step=k`, hook `step` argument (hook `ctx.N` = number of steps), and the `step k ·` lines in the dev navigator.
 - **Visibility attribute `data-step`:**
 
   | Value | Visible when current step *s* … |
@@ -278,16 +281,16 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
   `data-step-class="hi:3..3 hl-conv:2"` → `.hi` only at step 3, `.hl-conv` from step 2 on.
   This covers the original's "Problem – **Insight** – Method – Result" title highlight and the code underline glows.
 - **Effects** `data-step-fx="rise|fade|slide-left|none"` (default `rise` = `opacity 0→1, translateY(6px)→0, .35s ease`; `slide-left` = original resolution panels `translateX(-12px), .4s`). Hidden layers keep their space (opacity only), so the layout never jumps, as in the original.
-- **Arrival rule:** the first time a slide is entered **forward** it shows step 1; entering an unvisited slide **backward** shows step N (final). Example (original slide 3, rebuilt): Problem `data-step="1"` (shown on arrival as in the original), Insight `"2"`, Method `"3"`, Result `"4"`; anything left unmarked would follow at step 5.
+- **Arrival rule:** the first time a slide is entered **forward** it shows step 0; entering an unvisited slide **backward** shows its final step N‑1. Example (original slide 3, rebuilt): Problem `data-step="0"` (shown on arrival as in the original), Insight `"1"`, Method `"2"`, Result `"3"`; anything left unmarked would follow at step 4.
 
 ### 8.4 Navigation state machine
 State: `current` slide index, `steps[i]` (current step of slide *i*), `visited[i]`.
 
 | Input | Behaviour |
 |---|---|
-| forward (→ ↓ Space PageDown End) | if `steps[cur] < N` → `steps[cur]++`; else go to slide `cur+1` (if any) |
-| back (← ↑ PageUp Home) | if `steps[cur] > 1` → `steps[cur]--`; else go to slide `cur-1` (if any) |
-| enter slide *i* (forward / back / navigator jump) | if `visited[i]` → **restore `steps[i]`**; else step 1 (forward, jump) or N (back); mark visited |
+| forward (→ ↓ Space PageDown End) | if `steps[cur] < N‑1` → `steps[cur]++`; else go to slide `cur+1` (if any) |
+| back (← ↑ PageUp Home) | if `steps[cur] > 0` → `steps[cur]--`; else go to slide `cur-1` (if any) |
+| enter slide *i* (forward / back / navigator jump) | if `visited[i]` → **restore `steps[i]`**; else step 0 (forward, jump) or the final step N‑1 (back); mark visited |
 | Esc | close navigator or picker (never closes an animation overlay; animations may use Esc) |
 
 - While the **navigator, the animation picker, or an animation overlay** is open, forward/back are ignored by the deck. Key messages forwarded from the overlay's iframe are dropped, so slides don't change invisibly behind the animation.
@@ -409,7 +412,7 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 - No footer, no slide title, no default padding. The top buttons are present.
 
 ### 12.2 Table of contents slide
-Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level): ETH‑blue numbered circles (as on the original Motivation slide) at `--fs-body`, sub‑items as `–` dashes at `--fs-sub` (decision R4‑3). TOC text may contain `$…$` math. Like every slide, step 1 shows only the title; the whole list appears at step 2 (R5‑1). (Authors who want a different reveal can write the TOC section's content themselves; the engine then leaves it alone.)
+Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level): ETH‑blue numbered circles (as on the original Motivation slide) at `--fs-body`, sub‑items as `–` dashes at `--fs-sub` (decision R4‑3). TOC text may contain `$…$` math. Like every slide, step 0 shows only the title; the whole list appears at step 1 (R5‑1). (Authors who want a different reveal can write the TOC section's content themselves; the engine then leaves it alone.)
 
 ### 12.3 Black slide
 Pure `#000`, letterbox black. Only the top buttons are visible. Navigator label "–" / "End".
@@ -440,6 +443,12 @@ A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the ca
 ### 12.7 (removed)
 The separate ⚡ dev panel from the P1 follow‑up was replaced by the dev mode of the navigator (§12.6, decision R6‑1), so there is only one slide list to maintain.
 
+### 12.8 Components panel (`?dev` only, decision R11‑1)
+- In dev mode a **`▦ Components`** button sits between the animation button and `☰ Slides`: `[▶ Animation] [▦ Components] [☰ Slides]`. Without `?dev` it does not exist (an authoring tool, never shown in a talk).
+- It opens a **wider panel** (960 px instead of 607.5 px) titled "Components" with one entry per catalog component (§14): its **title**, the slide it comes from, a **live example** and, folded away under **HTML** (closed by default), the snippet with a **Copy** button.
+- Examples are laid out at the real slide content width and scaled down to the panel width, so nothing overflows; components that fill the slide height get a fixed example height (`data-height` in the catalog). Examples show the final state (open-ended `data-step-class` rules applied); image paths in snippets are replaced by neutral sample images.
+- Purpose: reuse the existing building blocks instead of inventing new ones per presentation.
+
 ---
 
 ## 13. Typography, colours, math
@@ -459,33 +468,33 @@ The separate ⚡ dev panel from the P1 follow‑up was replaced by the dev mode 
   All other px values quoted elsewhere in this spec (paddings, button sizes, 28px box offset, etc.) are **original** values and are multiplied by 1.125 in the engine CSS in the same way.
 
   `--eth #1F407A · --ink #1a1a1a · --muted #666 · --title-mark #8B6FC4` + a neutral accent palette `--accent-1…4` (the original `--dep/--wid/--res` green/blue/orange become `--accent-1/2/3`; papers can alias them in user CSS).
-- **Math:** KaTeX 0.16.47 + auto‑render, run once over all slides at start‑up (before thumbnails render). Delimiters: `$…$`, `\(…\)` inline; `$$…$$`, `\[…\]` display (display size `--fs-math`). A literal dollar sign is written `\$` (auto‑render does not support this natively; the engine pre‑processes it in P5). Render errors are shown in red inline (`throwOnError:false`); every formula is additionally parsed strictly (via auto-render's `preProcess`), and one that parses in neither inline nor display mode is reported as a deck warning.
+- **Math:** KaTeX 0.16.47 + auto‑render, run once over all slides at start‑up (before thumbnails render). Delimiters: `$…$`, `\(…\)` inline; `$$…$$`, `\[…\]` display (display size `--fs-math`). A literal dollar sign is written `\$`: outside formulas the engine protects it before auto‑render runs (inside a formula `\$` stays TeX; code blocks are untouched). **Implemented (P5):** display formulas render at `--fs-math` (36 px), inline formulas at KaTeX's 1.21 × the surrounding text. Render errors are shown in red inline (`throwOnError:false`); every formula is additionally parsed strictly (via auto-render's `preProcess`), and one that parses in neither inline nor display mode is reported as a deck warning.
 - Fonts and KaTeX (CSS, JS, fonts) are inlined as base64 in the engine block. Licences (OFL / MIT) are kept in `engine/vendor/`.
 
 ---
 
 ## 14. Component library (from the EfficientNet deck)
 
-All components live in `@layer components`, use the design tokens, and work with `data-step`. Each gets a copy‑paste snippet in `AUTHORING.md`.
+All components live in `@layer components` (`engine/components.css`), use the design tokens (original px × 1.125), and work with `data-step`. **Implemented (P5).** The snippets live in **`engine/components.html`** (one `<template data-name data-from [data-height]>` per component); `tools/build.py` injects them into the engine for the `?dev` Components panel (§12.8), and P6's `AUTHORING.md` reuses them. The showcase deck `examples/components/` rebuilds the EfficientNet content slides with these components (parity check, decision R11‑2).
 
 | Component | Class(es) | Origin in EfficientNet deck |
 |---|---|---|
-| Numbered list | `.num-list > .num-item` (`.num`, `.num-sub`) | Motivation bullets |
+| Numbered list | `.num-list > .num-item` (number from a CSS counter, `.num-sub`) | Motivation bullets |
 | Label + description rows | `.ld-list > .ld-row` (`.label`, `.desc` with left rule) | Problem/Insight/Method/Result, Transfer‑learning options |
 | Stepped title words | `.step-title` + `data-step-class="hi:k..k"` | PIMR title highlight |
-| Code block | `.code-block` with tokens `.ck .cf .ca .cn`, highlights `.hl-orange`, `.hl-teal` | Conv2d code line |
+| Code block | `<pre class="code-block" data-lang="python">` coloured automatically; manual tokens `.ck .cf .ca .cn .cs .cc`; highlights `.hl-orange`, `.hl-teal` | Conv2d code line |
 | Formula / highlight box | `.formula-box` (orange left border) | Compound scaling formula |
 | Info box | `.info-box` (grey, inner list) | "FLOPS scale differently" |
 | Conclusion box | `.conclusion-box` (red left border) | "Each ϕ step → FLOPS × 2^ϕ" |
-| Takeaway sections | `.takeaways > .tk-section > .tk-header + .tk-sub*` (optional `.borderless`) | Key takeaways, Outlook |
-| Figure with overlays | `.figure` + `.overlay-line`, `.overlay-label` (positioned in %) | Observation 1 red ceiling line |
-| Image strip / sprite panels | `.image-strip > .strip-panel` (+ `data-bg` sprite helpers) | Resolution dog panels |
-| Timeline | `.timeline > .tl-event` (`style="left:%"`, `.tl-year`, `.tl-name`, `.tl-sub`, image) | CNN arms race |
-| Data table | `.data-table` (`.row-group`, `.row-hl`, `.row-marker`, `.col-sep`) + `.table-note` | Results tables |
-| Two columns | `.cols` (`.col`, `.col-fixed`) | Transfer learning + logo |
+| Takeaway sections | `.takeaways > .tk-section > .tk-header + .tk-sub*` (optional `.borderless`; a `.formula-box.small` may sit inside) | Key takeaways, Outlook |
+| Figure with overlays | `.figure-wrap > .figure` + `.overlay-line`, `.overlay-label` (positioned in %) | Observation 1 red ceiling line |
+| Image strip / sprite panels | `.image-strip > .strip-panel > .strip-img[data-bg]` (+ `data-bg-size="400% auto"`, `data-bg-position`) | Resolution dog panels |
+| Timeline | `.timeline > .tl-event` (`style="left:%"`, `.tl-above > .tl-year`, `.tl-dot`, `.tl-below > .tl-name + .tl-sub / img`; the image is as wide as the name, pure CSS) | CNN arms race |
+| Data table | `.data-table` (`.compact`, `.centered`; rows `.row-group`, `.row-muted`, `.row-hl`, `.row-marker`, `.row-total`; header row `.group`; cells `.col-sep`, `.col-dbl`, `.bold`) + `.table-scroll`, `.table-note` | Results tables |
+| Two columns | `.cols` (`.col`, `.col-fixed`), `.stack` (centred column) | Transfer learning + logo |
 | Centred stage | `data-layout="center"` | Formula slide |
-| Punchline | `.punchline` | "EfficientNet is Gordon Ramsay" |
-| Accent text | `.title-mark`, `.accent-1…4` | Title marks, d/w/r colouring |
+| Bullets + punchline | `.bullets` (`li.sub` for sub‑points), `.punchline` | "EfficientNet is Gordon Ramsay" |
+| Accent text | `.title-mark`, `.accent-1…4`, `.muted`, `mark`, `.subtitle`, `.step-title .hi` | Title marks, d/w/r colouring |
 
 ---
 
@@ -502,7 +511,7 @@ All components live in `@layer components`, use the design tokens, and work with
 
 | Tool | Purpose |
 |---|---|
-| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` with the engine and contract blocks inlined between markers, stamped with the engine version. |
+| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` with the engine and contract blocks inlined between markers, stamped with the engine version; also builds every `examples/*/<name>_presentation.src.html` into `<name>_presentation.html` (`--check` covers both). |
 | `tools/update.py <deck.html>` | Replaces the `ENGINE` block (and in animation files the `ANIM-CONTRACT` block) with the current template's version. Writes a `.bak`, prints the old → new version, never touches the user zone. Refuses if markers are missing or duplicated. |
 | `tools/image_sizes.py <deck.html> [--check]` | For every `<img src>` inside `<main id="deck">` (never the engine block, comments, `<script>`/`<style>`), reads the natural pixel size of the file next to the deck (PNG, JPEG incl. EXIF orientation, GIF, WebP, SVG; format detected by content, not extension) and inserts or corrects `width`/`height` in place. Minimal text edits, line endings kept, `.bak` before writing. Prints updated / already correct / file missing / unreadable; missing and unreadable files are left unchanged. `--check` writes nothing and exits 1 if anything would change. |
 | `tools/new.py <folder> <prefix> [--anim <animprefix>]` | Copies the template into a new folder, renames files to `<prefix>_presentation.html` / `<animprefix>_animations.html`, copies `images/eth_zurich_aerial.png`. |
@@ -550,7 +559,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 | **P2 Special slides + navigator** ✅ done | Title slide (measured shrink‑to‑fit box), ☰ Slides button + navigator with live thumbnails, dev problems inside the navigator, hint. Earlier: TOC, black slide, appendix numbering, top‑button row, overlay component, preview mode. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
 | **P3 Assets** ✅ done | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
 | **P4 Animations** ✅ done | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
-| **P5 Look & components** | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
+| **P5 Look & components** ✅ done | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
 | **P6 Template + tooling + docs** | `template_presentation.html` (title, TOC, **3 empty content slides**, black slide, 1 appendix example), `template_animations.html`, `tools/build/update/new`, `AUTHORING.md`, `CLAUDE.md`. | `tools/new` → working deck in < 1 min; `tools/update` upgrades a deck without touching the user zone. |
 | **P7 Validation port** | Port the EfficientNet deck + animation to the template as `examples/EfficientNet/`. | All 20 original slides reproduced with no per‑slide JS except the timeline hook. |
 
@@ -614,4 +623,10 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑2 | Title text from the slide's `.slide-title` element (HTML allowed); `data-title` only where no visible title exists. | Spec, accepted |
 | D‑3 | Navigator rows show number + title only (original's subtitle line dropped). | Requirement |
 | D‑4 | User zone first, engine/vendor block last in the file; CSS layering so user CSS always wins. | Spec, accepted |
-| R9‑1 | Step model: step 1 = title + explicit `data-step="1"`; steps 2…k = explicitly assigned content; one final step k+1 reveals all unmarked content (none if everything is assigned). | Round 9 |
+| R9‑1 | Step model: step 1 = title + explicit `data-step="1"`; steps 2…k = explicitly assigned content; one final step k+1 reveals all unmarked content (none if everything is assigned). | Round 9 | *(numbers shifted to 0‑based by R10‑1)*
+| R10‑1 | Steps are 0‑based: step 0 = title (+ `data-step="0"`), explicit steps 1…k, final step k+1 = unmarked content. `data-steps` is the number of steps. | Round 10 |
+| R10‑2 | The template's example titles are numbered after their footer number: `Slide 3 – title` … `Slide 5 – title`, `Appendix 1 – title`. | Round 10 |
+| R11‑1 | Components get their own `?dev`-only `▦ Components` button and wider panel (title, live example, folded HTML) instead of a section in the Slides panel; replaces the earlier "Components section in ☰ Slides" idea (R9‑2). | Round 11 |
+| R11‑2 | The showcase deck lives in `examples/components/` and rebuilds the EfficientNet content slides with the components. | Round 11 |
+| R11‑3 | Python code blocks are coloured automatically (`data-lang="python"`); hand-coloured blocks and other languages use the token classes. | Round 11 |
+| D‑14 | Parity fixes: timeline image `width:0; min-width:100%` (as wide as the name, no JS); data tables line-height 1.2 (compact 1.35). | P5 |

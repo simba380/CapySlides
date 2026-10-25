@@ -212,6 +212,31 @@
   .row-problems { margin-top: 5px; padding-left: 18px; font-size: 12.5px; line-height: 1.4; color: #b71c1c; }
   .row-problems li + li { margin-top: 3px; }
 
+  /* ── Math (SPEC §13): display formulas at --fs-math; inline keeps KaTeX's 1.21em ── */
+  #deck .katex-display > .katex { font-size: var(--fs-math); }
+
+  /* ── ?dev ▦ Components panel (SPEC §12.8, R11-1): wider panel, examples scaled to fit ── */
+  .deck-panel.wide { width: 960px; max-height: 88%; }
+  .comp-list { gap: 27px; }
+  .comp-item { display: flex; flex-direction: column; gap: 6.75px; }
+  .comp-item + .comp-item { border-top: 1px solid #e8e8e8; padding-top: 22.5px; }
+  .comp-title { font-size: 18px; font-weight: 700; color: var(--ink); }
+  .comp-from { font-size: 12.5px; color: var(--muted); margin-top: -4.5px; }
+  .comp-preview { position: relative; width: 100%; overflow: hidden; border: 1px solid #ddd; border-radius: 6.75px; background: #fff; }
+  .slide-content.comp-stage {
+    position: absolute; top: 0; left: 0; flex: none; padding: 18px 22.5px;
+    transform-origin: 0 0; pointer-events: none;
+  }
+  .comp-code summary { cursor: pointer; font: 600 12.5px/1.6 var(--font-sans); color: var(--eth); width: max-content; }
+  .comp-copy {
+    all: unset; cursor: pointer; float: right; padding: 2.25px 11.25px; border-radius: 6.75px;
+    background: var(--eth); color: #fff; font: 600 12.5px/1.4 var(--font-sans);
+  }
+  .comp-code pre {
+    clear: both; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: #333; background: #f3f4f7;
+    border-radius: 6.75px; padding: 9px 11.25px; white-space: pre; overflow: auto; max-height: 180px; margin-top: 4.5px;
+  }
+
   /* ── Dev warnings badge (decision R4-1; only rendered with ?dev) ─────── */
   #deck-warnings {
     position: fixed; left: 10px; bottom: 10px; z-index: 10000; max-width: min(640px, 90vw);

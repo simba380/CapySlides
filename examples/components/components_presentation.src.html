@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Components showcase — EfficientNet rebuilt</title>
+  <!-- SOURCE of examples/components/components_presentation.html (built by tools/build.py).
+       Edit this file, then run: python tools/build.py
+       It rebuilds the content slides of docs/example_presentation_EfficientNet with the component
+       library (SPEC §14) and serves as the parity check and as a reference for authors. -->
+
+  <!-- ═════ USER ZONE ═════════════════════════════════════════════════════ -->
+  <style id="deck-user-styles">
+    /* Paper-specific colour names for depth / width / resolution. */
+    .dep { color: var(--accent-1); }
+    .wid { color: var(--accent-2); }
+    .res { color: var(--accent-3); }
+    .greek { font-style: italic; }
+    .formula-box sup { font-size: .7em; }
+    #tl-results .slide-title { font-size: 31.5px; margin-bottom: 13.5px; }
+    #tl-results .slide-content { padding-bottom: 45px; }
+    #constraints .formula-line { padding: 13.5px 0; font-size: calc(var(--fs-body) * 1.1); font-style: italic; text-align: center; letter-spacing: .02em; }
+  </style>
+
+  <script id="deck-config">
+    const DECK = {
+      title:     'EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks',
+      subtitle:  'Mingxing Tan, Quoc V. Le (2019)',
+      presenter: 'Simon Meier',
+      course:    { title: '252-4811-00L Machine Learning', type: 'Seminar', semester: 'FS26' },
+      toc:       ['Motivation', 'Problem, insight, method, result',
+                  { text: 'Compound scaling', sub: ['Observations', 'The scaling rule'] },
+                  'Results and transfer learning', 'Takeaways and outlook'],
+      animations: [],
+      date:      'auto',
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <section data-type="title"></section>
+    <section data-type="toc"></section>
+
+    <!-- Motivation: code line (step 0), underline glows (1, 2), numbered bullets (3, 4) -->
+    <section data-type="content" id="motivation">
+      <h2 class="slide-title">Motivation – scaling under budget constraints</h2>
+      <pre class="code-block" data-step="0"><span class="ck">self</span>.conv = nn.<span class="cf" data-step-class="hl-orange:1">Conv2d</span>(<span class="ca" data-step-class="hl-teal:2">in_channels</span>=<span class="cn">3</span>, <span class="ca" data-step-class="hl-teal:2">out_channels</span>=<span class="cn">64</span>, <span class="ca">kernel_size</span>=<span class="cn">3</span>, <span class="ca">stride</span>=<span class="cn">1</span>, <span class="ca">padding</span>=<span class="cn">1</span>)</pre>
+      <ol class="num-list">
+        <li class="num-item" data-step="3"><div><strong>You've all been there:</strong><div class="num-sub">You're tuning your CNN — more layers, more channels, or higher resolution?</div></div></li>
+        <li class="num-item" data-step="4"><div><strong>Industry reality:</strong><div class="num-sub">You built a prototype on a tight budget. But how to scale it for production?</div></div></li>
+      </ol>
+    </section>
+
+    <!-- Problem – Insight – Method – Result: one row and one highlighted title word per step -->
+    <section data-type="content" id="pimr">
+      <h2 class="step-title slide-title">
+        <span data-step-class="hi:0..0">Problem</span> – <span data-step-class="hi:1..1">Insight</span> –
+        <span data-step-class="hi:2..2">Method</span> – <span data-step-class="hi:3..3">Result</span>
+      </h2>
+      <div class="ld-list">
+        <div class="ld-row" data-step="0"><div class="label">Problem:</div><div class="desc">Scaling CNNs by tuning <span class="dep">depth</span>, <span class="wid">width</span>, or <span class="res">resolution</span> — but always <u>one at a time</u>, which is suboptimal</div></div>
+        <div class="ld-row" data-step="1"><div class="label">Insight:</div><div class="desc"><span class="dep">Depth</span>, <span class="wid">width</span>, and <span class="res">resolution</span> are <u>interdependent</u> — scaling them together in a fixed ratio results in better accuracy &amp; efficiency</div></div>
+        <div class="ld-row" data-step="2"><div class="label">Method:</div><div class="desc">A <u>compound scaling rule</u> (ϕ) to jointly scale <span class="dep">depth</span>, <span class="wid">width</span>, and <span class="res">resolution</span> together</div></div>
+        <div class="ld-row" data-step="3"><div class="label">Result:</div><div class="desc">EfficientNet — a family of models (B0–B7) that outperform prior networks at a fraction of the parameters</div></div>
+      </div>
+    </section>
+
+    <!-- Importance of resolution: one sprite image, four panels revealed left to right -->
+    <section data-type="content" id="resolution">
+      <h2 class="slide-title">Importance of <span class="res">resolution</span></h2>
+      <div class="subtitle" data-step="0">What is it?</div>
+      <div class="image-strip">
+        <div class="strip-panel" data-step="1" data-step-fx="slide-left"><div class="strip-img" data-bg="images/folie8_dogs.png" data-bg-size="400% auto" data-bg-position="0% 50%"></div></div>
+        <div class="strip-panel" data-step="2" data-step-fx="slide-left"><div class="strip-img" data-bg="images/folie8_dogs.png" data-bg-size="400% auto" data-bg-position="33.33% 50%"></div></div>
+        <div class="strip-panel" data-step="3" data-step-fx="slide-left"><div class="strip-img" data-bg="images/folie8_dogs.png" data-bg-size="400% auto" data-bg-position="66.67% 50%"></div></div>
+        <div class="strip-panel" data-step="4" data-step-fx="slide-left"><div class="strip-img" data-bg="images/folie8_dogs.png" data-bg-size="400% auto" data-bg-position="100% 50%"></div></div>
+      </div>
+    </section>
+
+    <!-- The CNN arms race: timeline events one per step -->
+    <section data-type="content" id="arms-race">
+      <h2 class="slide-title">The CNN <span class="title-mark">Arms Race</span></h2>
+      <div class="timeline">
+        <div class="tl-event" style="left: 12%" data-step="1" data-step-fx="fade">
+          <div class="tl-above"><div class="tl-year">2012</div></div>
+          <div class="tl-dot"></div>
+          <div class="tl-below"><div class="tl-name">AlexNet</div><img src="images/folie9_imagenet.png" width="396" height="341" alt="ImageNet"></div>
+        </div>
+        <div class="tl-event" style="left: 50%" data-step="2" data-step-fx="fade">
+          <div class="tl-above"><div class="tl-year">2015</div></div>
+          <div class="tl-dot"></div>
+          <div class="tl-below"><div class="tl-name">ResNet</div><img src="images/folie9_imagenet.png" width="396" height="341" alt="ImageNet"></div>
+        </div>
+        <div class="tl-event" style="left: 88%" data-step="3" data-step-fx="fade">
+          <div class="tl-above"><div class="tl-year">2019</div></div>
+          <div class="tl-dot"></div>
+          <div class="tl-below"><div class="tl-name">GPipe</div><div class="tl-sub">557M Params</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Observation 1: figure on arrival, ceiling line + label at step 1 -->
+    <section data-type="content" id="observation-1">
+      <h2 class="slide-title">Observation 1 – scaling <span class="title-mark"><em>any</em> single dimension</span> improves accuracy</h2>
+      <div class="figure-wrap" data-step="0">
+        <div class="figure">
+          <img src="images/folie10_graphs.png" width="1126" height="331" alt="Scaling width, depth, resolution individually">
+          <div class="overlay-line" style="top: 16%; left: 6.5%; right: 1%" data-step="1" data-step-fx="fade"></div>
+          <div class="overlay-label" style="top: 9%" data-step="1" data-step-fx="fade">~80% accuracy ceiling</div>
+        </div>
+      </div>
+    </section>
+
+    <section data-type="content" id="observation-2">
+      <h2 class="slide-title">Observation 2 – but scaling all dimensions <span class="title-mark">together</span> is better</h2>
+      <div class="figure-wrap" data-step="0">
+        <img src="images/folie11_graph.png" width="677" height="517" alt="Scaling all dimensions together" style="max-height: 100%; width: auto">
+      </div>
+    </section>
+
+    <!-- The formula, centre stage -->
+    <section data-type="content" id="formula" data-layout="center">
+      <h2 class="slide-title">Compound scaling rule</h2>
+      <div class="stack" data-step="0">
+        <div class="formula-box large">
+          <span><span class="dep greek">d</span> = <span class="greek">α<sup>ϕ</sup></span></span><span class="muted">,</span>
+          <span><span class="wid greek">w</span> = <span class="greek">β<sup>ϕ</sup></span></span><span class="muted">,</span>
+          <span><span class="res greek">r</span> = <span class="greek">γ<sup>ϕ</sup></span></span>
+        </div>
+        <div class="muted" style="font-size: var(--fs-sub); font-style: italic">subject to &nbsp; α · β<sup>2</sup> · γ<sup>2</sup> ≈ 2 &nbsp; with α, β, γ ≥ 1</div>
+      </div>
+    </section>
+
+    <!-- Results table -->
+    <section data-type="content" id="results">
+      <h2 class="slide-title">EfficientNet vs. the Field — <span class="dep">same accuracy, fewer resources</span></h2>
+      <div class="table-scroll" data-step="0">
+        <table class="data-table compact">
+          <thead><tr><th>Model</th><th>Top-1</th><th>Top-5</th><th>#Params</th><th>Ratio</th><th>#FLOPs</th><th>Ratio</th></tr></thead>
+          <tbody>
+            <tr class="row-group"><td>EfficientNet-B0</td><td>77.1%</td><td>93.3%</td><td>5.3M</td><td>1×</td><td>0.39B</td><td>1×</td></tr>
+            <tr class="row-muted"><td>ResNet-50</td><td>76.0%</td><td>93.0%</td><td>26M</td><td>4.9×</td><td>4.1B</td><td>11×</td></tr>
+            <tr class="row-muted"><td>DenseNet-169</td><td>76.2%</td><td>93.2%</td><td>14M</td><td>2.6×</td><td>3.5B</td><td>8.9×</td></tr>
+            <tr class="row-group row-hl row-marker"><td>EfficientNet-B1</td><td>79.1%</td><td>94.4%</td><td>7.8M</td><td>1×</td><td>0.70B</td><td>1×</td></tr>
+            <tr class="row-muted row-hl"><td>ResNet-152</td><td>77.8%</td><td>93.8%</td><td>60M</td><td>7.6×</td><td>11B</td><td>16×</td></tr>
+            <tr class="row-muted"><td>Inception-v3</td><td>78.8%</td><td>94.4%</td><td>24M</td><td>3.0×</td><td>5.7B</td><td>8.1×</td></tr>
+            <tr class="row-group"><td>EfficientNet-B2</td><td>80.1%</td><td>94.9%</td><td>9.2M</td><td>1×</td><td>1.0B</td><td>1×</td></tr>
+            <tr class="row-muted"><td>Inception-v4</td><td>80.0%</td><td>95.0%</td><td>48M</td><td>5.2×</td><td>13B</td><td>13×</td></tr>
+            <tr class="row-muted"><td>Inception-resnet-v2</td><td>80.1%</td><td>95.1%</td><td>56M</td><td>6.1×</td><td>13B</td><td>13×</td></tr>
+            <tr class="row-group"><td>EfficientNet-B3</td><td>81.6%</td><td>95.7%</td><td>12M</td><td>1×</td><td>1.8B</td><td>1×</td></tr>
+            <tr class="row-muted"><td>ResNeXt-101</td><td>80.9%</td><td>95.6%</td><td>84M</td><td>7.0×</td><td>32B</td><td>18×</td></tr>
+            <tr class="row-group"><td>EfficientNet-B4</td><td>82.9%</td><td>96.4%</td><td>19M</td><td>1×</td><td>4.2B</td><td>1×</td></tr>
+            <tr class="row-muted"><td>SENet</td><td>82.7%</td><td>96.2%</td><td>146M</td><td>7.7×</td><td>42B</td><td>10×</td></tr>
+            <tr class="row-muted"><td>NASNet-A</td><td>82.7%</td><td>96.2%</td><td>89M</td><td>4.7×</td><td>24B</td><td>5.7×</td></tr>
+            <tr class="row-muted"><td>AmoebaNet-A</td><td>82.8%</td><td>96.1%</td><td>87M</td><td>4.6×</td><td>23B</td><td>5.5×</td></tr>
+            <tr class="row-group"><td>EfficientNet-B5</td><td>83.6%</td><td>96.7%</td><td>30M</td><td>1×</td><td>9.9B</td><td>1×</td></tr>
+            <tr class="row-muted"><td>AmoebaNet-C</td><td>83.5%</td><td>96.5%</td><td>155M</td><td>5.2×</td><td>41B</td><td>4.1×</td></tr>
+            <tr class="row-group"><td>EfficientNet-B6</td><td>84.0%</td><td>96.8%</td><td>43M</td><td>1×</td><td>19B</td><td>1×</td></tr>
+            <tr class="row-group row-hl row-marker"><td>EfficientNet-B7</td><td>84.3%</td><td>97.0%</td><td>66M</td><td>1×</td><td>37B</td><td>1×</td></tr>
+            <tr class="row-muted row-hl"><td>GPipe</td><td>84.3%</td><td>97.0%</td><td>557M</td><td>8.4×</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <div class="table-note">We omit ensemble and multi-crop models, or models pretrained on 3.5B Instagram images.</div>
+      </div>
+    </section>
+
+    <!-- Transfer learning: logo first, then the two options -->
+    <section data-type="content" id="transfer-learning">
+      <h2 class="slide-title">Transfer Learning – <span class="title-mark">What is it?</span></h2>
+      <div class="cols">
+        <div class="col">
+          <div class="ld-row" data-step="1"><div class="label">Option A – Train from scratch</div><div class="desc">Hire someone who has never cooked before — train them from scratch</div></div>
+          <div class="ld-row" data-step="2"><div class="label">Option B – Transfer Learning</div><div class="desc">Hire a French chef — teach them sushi</div></div>
+        </div>
+        <div class="col-fixed" data-step="0" style="flex-basis: 427.5px"><img src="images/SimonSaysSushi_logo.png" width="1226" height="675" alt="Simon Says Sushi" style="width: 382.5px"></div>
+      </div>
+    </section>
+
+    <!-- Transfer learning results: table first, bullets, then the punchline -->
+    <section data-type="content" id="tl-results">
+      <h2 class="slide-title">Transfer Learning – <span class="title-mark">EfficientNet</span> Performance Results</h2>
+      <table class="data-table centered" data-step="0">
+        <thead>
+          <tr class="group"><th></th><th colspan="6">Comparison to best reported results</th></tr>
+          <tr><th></th><th class="col-dbl">Model</th><th>Acc.</th><th>#Param</th><th>Our Model</th><th>Acc.</th><th>#Param(ratio)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CIFAR-10</td><td class="col-dbl">†GPipe</td><td>99.0%</td><td>556M</td><td>EfficientNet-B7</td><td>98.9%</td><td>64M (8.7×)</td></tr>
+          <tr class="row-hl"><td>CIFAR-100</td><td class="col-dbl">GPipe</td><td>91.3%</td><td>556M</td><td>EfficientNet-B7</td><td class="bold">91.7%</td><td>64M (8.7×)</td></tr>
+          <tr class="row-hl"><td>Birdsnap</td><td class="col-dbl">GPipe</td><td>83.6%</td><td>556M</td><td>EfficientNet-B7</td><td class="bold">84.3%</td><td>64M (8.7×)</td></tr>
+          <tr><td>Stanford Cars</td><td class="col-dbl">‡DAT</td><td class="bold">94.8%</td><td>–</td><td>EfficientNet-B7</td><td>94.7%</td><td>–</td></tr>
+          <tr class="row-hl"><td>Flowers</td><td class="col-dbl">DAT</td><td>97.7%</td><td>–</td><td>EfficientNet-B7</td><td class="bold">98.8%</td><td>–</td></tr>
+          <tr class="row-hl"><td>FGVC Aircraft</td><td class="col-dbl">DAT</td><td>92.9%</td><td>–</td><td>EfficientNet-B7</td><td class="bold">92.9%</td><td>–</td></tr>
+          <tr><td>Oxford-IIIT Pets</td><td class="col-dbl">GPipe</td><td class="bold">95.9%</td><td>556M</td><td>EfficientNet-B6</td><td>95.4%</td><td>41M (14×)</td></tr>
+          <tr class="row-hl"><td>Food-101</td><td class="col-dbl">GPipe</td><td>93.0%</td><td>556M</td><td>EfficientNet-B7</td><td class="bold">93.0%</td><td>64M (8.7×)</td></tr>
+          <tr class="row-total"><td>Geo-Mean</td><td class="col-dbl"></td><td></td><td></td><td></td><td></td><td class="bold">(9.6×)</td></tr>
+        </tbody>
+      </table>
+      <ul class="bullets" style="margin-top: 11.25px">
+        <li data-step="1"><u>EfficientNet</u> learns <em><mark>better general representations</mark></em>, not just better ImageNet performance</li>
+        <li class="sub" data-step="1">Compound scaling → better feature representations</li>
+      </ul>
+      <div class="punchline" data-step="2"><u>EfficientNet</u> is Gordon Ramsay</div>
+    </section>
+
+    <!-- Key takeaways -->
+    <section data-type="content" id="takeaways">
+      <h2 class="slide-title">Key takeaways</h2>
+      <div class="takeaways">
+        <div class="tk-section">
+          <div class="tk-header" data-step="1">Compound Model Scaling:</div>
+          <div class="formula-box small" data-step="1">single dimension scaling &ensp;&lt;&lt;&ensp; compound scaling</div>
+          <div class="formula-box small" data-step="2">
+            <span class="muted" style="font-style: italic; margin-right: 9px">Key formula:</span>
+            <span><span class="dep greek">d</span> = <span class="greek">α<sup>ϕ</sup></span></span><span class="muted">,</span>
+            <span><span class="wid greek">w</span> = <span class="greek">β<sup>ϕ</sup></span></span><span class="muted">,</span>
+            <span><span class="res greek">r</span> = <span class="greek">γ<sup>ϕ</sup></span></span>
+            <span style="padding: 0 22.5px">⟹</span>
+            <span class="muted" style="font-style: italic">α = 1.2,&ensp;β = 1.1,&ensp;γ = 1.15</span>
+          </div>
+        </div>
+        <div class="tk-section">
+          <div class="tk-header" data-step="3"><u>EfficientNet:</u></div>
+          <div class="tk-sub" data-step="3">Achieves <u>higher accuracy</u> with <u>less parameters and FLOPs</u></div>
+          <div class="tk-sub" data-step="4">EfficientNet learns better general representations - not just better ImageNet performance!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Outlook -->
+    <section data-type="content" id="outlook">
+      <h2 class="slide-title">Outlook – what happened since?</h2>
+      <div class="takeaways">
+        <div class="tk-section borderless">
+          <div class="tk-header" data-step="1">Direct successor:</div>
+          <div class="tk-sub" data-step="1">EfficientNetV2 (Tan &amp; Le, 2021)</div>
+        </div>
+        <div class="tk-section borderless">
+          <div class="tk-header" data-step="2">Vision Transformers dethroned CNNs in 2020 (<u>ViT</u>):</div>
+          <div class="tk-sub" data-step="2">but the scaling insight lives on</div>
+        </div>
+      </div>
+    </section>
+
+    <section data-type="black"></section>
+
+    <!-- Appendix: constraints (info box at step 1, conclusion at step 2) -->
+    <section data-type="content" id="constraints">
+      <h2 class="slide-title">Compound scaling rule – <span class="title-mark">constraints</span></h2>
+      <div style="display: flex; flex-direction: column; gap: 20.25px">
+        <div data-step="0">
+          <div style="font-size: var(--fs-body); margin-bottom: 6.75px">Subject to the constraint:</div>
+          <div class="formula-line">α &middot; β<sup>2</sup> &middot; γ<sup>2</sup> &asymp; 2 &emsp;&emsp;&emsp;&emsp; with &emsp; α &ge; 1, &ensp;β &ge; 1, &ensp;γ &ge; 1</div>
+        </div>
+        <div class="info-box" data-step="1">
+          <div><strong>FLOPS scale differently per dimension:</strong></div>
+          <ul>
+            <li>Doubling <span class="dep"><strong>depth</strong></span> → FLOPS ×<strong>2</strong> &nbsp;(linear)</li>
+            <li>Doubling <span class="wid"><strong>width</strong></span> → FLOPS ×<strong>4</strong> &nbsp;(quadratic)</li>
+            <li>Doubling <span class="res"><strong>resolution</strong></span> → FLOPS ×<strong>4</strong> &nbsp;(quadratic, pixels scale in 2D)</li>
+          </ul>
+        </div>
+        <div class="conclusion-box" data-step="2">Each ϕ step → total FLOPS × <strong>2<sup>ϕ</sup></strong></div>
+      </div>
+    </section>
+  </main>
+  <!-- ═════ END USER ZONE ═════════════════════════════════════════════════ -->
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

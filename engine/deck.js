@@ -1,8 +1,8 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
    Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
    §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
-   §10 assets (missing images → placeholders), §9 animations.
-   Later phases plug in here: P5 math escaping + components. */
+   §10 assets (missing images → placeholders), §9 animations, §13 math, §14 components
+   (code highlighting + the ?dev component catalog). */
 (() => {
   'use strict';
 
@@ -27,6 +27,10 @@
   ];
   const THUMB_WIDTH = 126;   // navigator thumbnails (original 112px x 1.125)
   const HINT_MS = 4000;      // "← → to navigate" fades after this
+  const DOLLAR = '\uE024';   // stands in for an escaped \$ while KaTeX scans the text
+  const MATH_IGNORE = 'script, noscript, style, textarea, pre, code, option';
+  // Component catalog from engine/components.html (injected by tools/build.py): [{ name, from, html }].
+  const COMPONENTS = __COMPONENT_CATALOG__;
   const ANIM_READY_MS = 1500;   // after an animation iframe's load event, a `ready` must have arrived …
   const ANIM_TOTAL_MS = 4000;   // … and at the latest this long after its src was set (SPEC §9.5)
   const QUEUE_STEP_MS = 5000;   // a queued iframe that never fires `load` no longer blocks the queue
@@ -73,7 +77,7 @@
   function warn(message, where = {}) {
     const slide = where.slide !== undefined ? where.slide : slideIndexOf(where.el);
     problems.push({ message, slide: slide === undefined ? null : slide,
-                    el: where.el || null, step: where.step || null });
+                    el: where.el || null, step: where.step ?? null });
     warnings.push(message);
     if (where.el) console.warn('[deck] ' + message, where.el);
     else console.warn('[deck] ' + message);
@@ -82,7 +86,7 @@
 
   /** First step at which `el` is visible: the latest start of the step layers around it. */
   function firstVisibleStep(el) {
-    let step = 1;
+    let step = 0;
     for (let n = el; n && n.parentElement && n.parentElement.id !== 'deck'; n = n.parentElement) {
       const range = layerRanges.get(n);
       if (range) step = Math.max(step, range[0]);
@@ -90,11 +94,11 @@
     return step;
   }
 
-  /** Step at which a problem becomes visible (R6-4): explicit step, else its element's step, else 1. */
+  /** Step at which a problem becomes visible (R6-4): explicit step, else its element's step, else 0. */
   function problemStep(p) {
-    if (p.step) return p.step;
+    if (p.step !== null && p.step !== undefined) return p.step;
     if (p.el && p.el.isConnected) return firstVisibleStep(p.el);
-    return 1;
+    return 0;
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
@@ -195,24 +199,24 @@
 
   // ── Steps (SPEC §8.3) ─────────────────────────────────────────────────────
 
-  /** "3" → [3, ∞]; "2..4" → [2, 4]; anything invalid → null. */
+  /** Steps are 0-based (R10-1): "3" → [3, ∞]; "2..4" → [2, 4]; "0" = with the title; invalid → null. */
   function parseRange(value) {
     const m = /^\s*(\d+)\s*(?:\.\.\s*(\d+)\s*)?$/.exec(String(value));
     if (!m) return null;
     const from = Number(m[1]);
     const to = m[2] === undefined ? Infinity : Number(m[2]);
-    return from >= 1 && to >= from ? [from, to] : null;
+    return from >= 0 && to >= from ? [from, to] : null;
   }
 
   function inRange(step, range) {
     return step >= range[0] && step <= range[1];
   }
 
-  /** Unmarked content (R9-1): step 1 shows only the slide title, steps 2…k show what is explicitly
-      assigned to them, and one final step k+1 reveals everything that was not assigned to a step.
-      Collects the unmarked content subtrees; a container that holds explicitly stepped elements
-      stays structural and the search continues inside it, so `data-step="1"` anywhere still means
-      "visible from the start". */
+  /** Unmarked content (R9-1, 0-based since R10-1): step 0 shows the slide title, steps 1…k show
+      what is explicitly assigned to them, and one final step k+1 reveals everything that was not
+      assigned to a step. Collects the unmarked content subtrees; a container that holds explicitly
+      stepped elements stays structural and the search continues inside it, so `data-step="0"`
+      anywhere still means "visible from the start". */
   function unmarkedContent(container, found = []) {
     for (const child of container.children) {
       if (NOT_CONTENT.has(child.tagName) || child.classList.contains('slide-title')) continue;
@@ -227,7 +231,7 @@
     const { el } = slide;
     const where = `slide ${slide.index + 1} ("${slide.id}")`;
     const at = extra => ({ slide: slide.index, ...extra });
-    let highest = 1;
+    let highest = 0;   // highest step index referenced; steps run 0 … N-1
     const note = range => { highest = Math.max(highest, range[0], isFinite(range[1]) ? range[1] : 0); };
 
     if (el.querySelector('section')) warn(`${where}: nested <section> elements are not supported`, at());
@@ -265,24 +269,25 @@
       }
     }
 
-    let N = highest;
+    let N = highest + 1;   // number of steps
     if (el.dataset.steps !== undefined) {
       const declared = Number(el.dataset.steps);
       if (!Number.isInteger(declared) || declared < 1) {
         warn(`${where}: invalid data-steps="${el.dataset.steps}" (positive integer expected)`, at());
       } else {
-        if (declared < highest) warn(`${where}: data-steps="${declared}" is lower than the highest step used (${highest})`, at());
-        N = Math.max(declared, highest);
+        if (declared < N) warn(`${where}: data-steps="${declared}" is lower than the number of steps used (${N})`, at());
+        N = Math.max(declared, N);
       }
     }
     if (unmarked.length) {   // the final step: everything not assigned to a numbered step
+      const final = N;
       N += 1;
       for (const child of unmarked) {
-        child.setAttribute('data-step', String(N));
+        child.setAttribute('data-step', String(final));
         child.setAttribute('data-step-implicit', '');
         child.classList.add('step-layer', 'fx-rise');
-        slide.layers.push({ el: child, range: [N, Infinity] });
-        layerRanges.set(child, [N, Infinity]);
+        slide.layers.push({ el: child, range: [final, Infinity] });
+        layerRanges.set(child, [final, Infinity]);
       }
     }
     slide.N = N;
@@ -461,7 +466,7 @@
       if (el.dataset.bgColor) el.style.backgroundColor = el.dataset.bgColor;
       return {
         el, index, type, id: el.id, zone: type === 'black' ? 'main' : zone, number, label,
-        title: '', N: 1, layers: [], classRules: [], step: 1, visited: false, rendered: false,
+        title: '', N: 1, layers: [], classRules: [], step: 0, visited: false, rendered: false,
       };
     });
 
@@ -636,7 +641,7 @@
   function show(index, how) {
     const slide = slides[index];
     if (!slide.visited) {
-      slide.step = how === 'back' ? slide.N : 1;
+      slide.step = how === 'back' ? slide.N - 1 : 0;
       slide.visited = true;
     }
     const previous = slides[state.current];
@@ -657,7 +662,7 @@
   function next() {
     if (isBlocked()) return false;
     const slide = slides[state.current];
-    if (slide.step < slide.N) { slide.step++; renderSlide(slide); return true; }
+    if (slide.step < slide.N - 1) { slide.step++; renderSlide(slide); return true; }
     if (state.current < slides.length - 1) { show(state.current + 1, 'forward'); return true; }
     return false;
   }
@@ -665,7 +670,7 @@
   function prev() {
     if (isBlocked()) return false;
     const slide = slides[state.current];
-    if (slide.step > 1) { slide.step--; renderSlide(slide); return true; }
+    if (slide.step > 0) { slide.step--; renderSlide(slide); return true; }
     if (state.current > 0) { show(state.current - 1, 'back'); return true; }
     return false;
   }
@@ -680,7 +685,7 @@
     return target;
   }
 
-  /** Jump to a slide by 0-based index or by id; optionally set its step (clamped to 1…N). */
+  /** Jump to a slide by 0-based index or by id; optionally set its step (0-based, clamped to 0…N-1). */
   function goTo(target, step) {
     const index = resolveIndex(target);
     if (!Number.isInteger(index) || index < 0 || index >= slides.length) {
@@ -689,7 +694,7 @@
     }
     if (step !== undefined) {
       const slide = slides[index];
-      slide.step = Math.min(slide.N, Math.max(1, Math.round(Number(step)) || 1));
+      slide.step = Math.min(slide.N - 1, Math.max(0, Math.round(Number(step)) || 0));
       slide.visited = true;
     }
     show(index, 'jump');
@@ -1025,7 +1030,7 @@
   function stepFor(index) {
     if (!DEV) return undefined;
     const list = slideProblems(index);
-    return list.length ? Math.min(list[0].at, slides[index].N) : undefined;
+    return list.length ? Math.min(list[0].at, slides[index].N - 1) : undefined;
   }
 
   function revealRow(panel, row) {
@@ -1126,7 +1131,195 @@
     setTimeout(() => { renderDates(); scheduleMidnightRefresh(); }, nextDay - now);
   }
 
+  // ── Code highlighting (SPEC §14): <pre class="code-block" data-lang="python"> ──
+  // Hand-coloured blocks (containing token spans) are left alone.
+
+  const PY_KEYWORDS = new Set(('False None True and as assert async await break class continue def del elif ' +
+    'else except finally for from global if import in is lambda nonlocal not or pass raise return try ' +
+    'while with yield self cls').split(' '));
+  const PY_TOKEN = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(\b\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?j?\b)|([A-Za-z_]\w*)|([\s\S])/g;
+  const PY_AFTER = /\s*(\(|=(?!=))?/y;
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  }
+
+  function highlightPython(src) {
+    let out = '', depth = 0, m;
+    PY_TOKEN.lastIndex = 0;
+    while ((m = PY_TOKEN.exec(src))) {
+      const [tok, comment, str, num, ident] = m;
+      const span = cls => `<span class="${cls}">${escapeHtml(tok)}</span>`;
+      if (comment) out += span('cc');
+      else if (str) out += span('cs');
+      else if (num) out += span('cn');
+      else if (ident) {
+        PY_AFTER.lastIndex = PY_TOKEN.lastIndex;
+        const next = PY_AFTER.exec(src)[1];
+        if (PY_KEYWORDS.has(ident)) out += span('ck');
+        else if (next === '(') out += span('cf');
+        else if (next && depth > 0) out += span('ca');   // keyword argument inside a call
+        else out += escapeHtml(tok);
+      } else {
+        if ('([{'.includes(tok)) depth++;
+        else if (')]}'.includes(tok)) depth = Math.max(0, depth - 1);
+        out += escapeHtml(tok);
+      }
+    }
+    return out;
+  }
+
+  function highlightCode(root, quiet) {
+    for (const el of root.querySelectorAll('[data-lang]')) {
+      const lang = el.dataset.lang.toLowerCase();
+      if (lang !== 'python' && lang !== 'py') {
+        if (!quiet) warn(`code language "${lang}" is not coloured automatically (only python); use the token classes .ck .cf .ca .cn .cs .cc`, { el });
+        continue;
+      }
+      if (el.children.length) continue;
+      el.innerHTML = highlightPython(el.textContent);
+    }
+  }
+
+  // ── Sample image for component previews ──────────────────────────────────
+
+  /** Neutral stand-in image for component previews (the snippets' image paths are examples). */
+  function sampleImageSvg(width, height) {
+    const W = Math.max(1, Math.round(width)), H = Math.max(1, Math.round(height));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+      `<rect width="${W}" height="${H}" fill="#e9edf3"/><path d="M0 ${H} L${W * 0.35} ${H * 0.45} L${W * 0.6} ${H * 0.75} L${W * 0.78} ${H * 0.55} L${W} ${H}Z" fill="#c9d3e1"/></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  // ── ?dev "Components" button + panel (SPEC §12.8, decision R11-1) ────────
+  // A catalog of the built-in components, so slides reuse them instead of inventing new ones.
+  // Each entry: title, origin, a live example scaled to the panel width, and its HTML (folded).
+
+  let compPanel = null, compButton = null;
+
+  function buildComponentsPanel() {
+    compPanel = createOverlay('comp-overlay', 'Components', () => {
+      if (!compPanel.list.childElementCount) renderComponentList(compPanel.list);
+    });
+    compPanel.panel.classList.add('wide');
+    compPanel.list.classList.add('comp-list');
+    compButton = h('button', 'top-btn', '▦ Components');
+    compButton.id = 'comp-btn';
+    compButton.type = 'button';
+    compButton.addEventListener('click', () => toggleOverlay(compPanel));
+    topbar.insertBefore(compButton, navButton);   // [▶ Animation] [▦ Components] [☰ Slides]
+  }
+
+  function renderComponentList(list) {
+    // Examples are laid out at the real content width of a slide, then scaled to the panel.
+    const stageWidth = cfg.canvas.width - 2 * 63 + 2 * 22.5;
+    for (const c of COMPONENTS) {
+      const item = h('div', 'comp-item');
+      const preview = h('div', 'comp-preview');
+      const stage = h('div', 'slide-content comp-stage');
+      stage.style.width = stageWidth + 'px';
+      if (c.height) stage.style.height = c.height + 'px';
+      stage.innerHTML = c.html;
+      for (const img of stage.querySelectorAll('img')) {
+        img.src = sampleImageSvg(Number(img.getAttribute('width')) || 1600, Number(img.getAttribute('height')) || 900);
+      }
+      for (const el of stage.querySelectorAll('[data-bg]')) {
+        el.style.backgroundImage = `url("${sampleImageSvg(400, 300)}")`;
+        el.style.backgroundSize = '100% 100%';
+      }
+      for (const el of stage.querySelectorAll('[data-step-class]')) {   // show the final state:
+        for (const rule of el.dataset.stepClass.trim().split(/\s+/)) {    // open-ended class rules on
+          const cut = rule.lastIndexOf(':');
+          if (cut > 0 && !rule.includes('..')) el.classList.add(rule.slice(0, cut));
+        }
+      }
+      highlightCode(stage, true);
+      if (typeof window.renderMathInElement === 'function') {
+        protectDollars(stage);
+        window.renderMathInElement(stage, { delimiters: MATH_DELIMITERS, throwOnError: false });
+        restoreDollars(stage);
+      }
+      preview.appendChild(stage);
+
+      const code = document.createElement('details');
+      code.className = 'comp-code';
+      const summary = h('summary', '', 'HTML');
+      const copy = h('button', 'comp-copy', 'Copy');
+      copy.type = 'button';
+      copy.addEventListener('click', () => copyText(c.html.trim(), copy));
+      code.append(summary, copy, h('pre', '', c.html.trim()));
+
+      item.append(h('div', 'comp-title', c.name), h('div', 'comp-from', 'from: ' + c.from), preview, code);
+      list.appendChild(item);
+    }
+    // Measure after all items exist (the panel's scrollbar changes the available width). The
+    // panel is laid out (only transparent) while it opens, so the examples can be measured.
+    for (const preview of list.querySelectorAll('.comp-preview')) {
+      const stage = preview.firstElementChild;
+      const scale = preview.clientWidth / stageWidth;
+      stage.style.transform = `scale(${scale})`;
+      preview.style.height = Math.ceil(stage.offsetHeight * scale) + 'px';
+    }
+  }
+
+  function copyText(text, button) {
+    const label = button.textContent;
+    const done = ok => {
+      button.textContent = ok ? 'Copied ✓' : 'Copy failed';
+      setTimeout(() => { button.textContent = label; }, 1500);
+    };
+    const fallback = () => {
+      const area = h('textarea');
+      area.value = text;
+      area.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      area.remove();
+      done(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), fallback);
+    else fallback();
+  }
+
   // ── Math ──────────────────────────────────────────────────────────────────
+
+  /** `\$` outside of formulas means a literal dollar sign (SPEC §13). Inside formulas `\$` is TeX
+      and stays untouched. */
+  function escapeDollarsOutsideMath(text) {
+    let out = '', i = 0, end = null;
+    while (i < text.length) {
+      if (end) {                                    // inside a formula
+        if (text[i] === '\\') { out += text.slice(i, i + 2); i += 2; continue; }
+        if (text.startsWith(end, i)) { out += end; i += end.length; end = null; continue; }
+        out += text[i++];
+        continue;
+      }
+      if (text.startsWith('\\$', i)) { out += DOLLAR; i += 2; continue; }
+      const open = ['$$', '$', '\\(', '\\['].find(d => text.startsWith(d, i));
+      if (open) { end = { '$$': '$$', '$': '$', '\\(': '\\)', '\\[': '\\]' }[open]; out += open; i += open.length; continue; }
+      out += text[i++];
+    }
+    return out;
+  }
+
+  function textNodes(root, skipSelector) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!skipSelector || !(n.parentElement && n.parentElement.closest(skipSelector))) nodes.push(n);
+    }
+    return nodes;
+  }
+
+  function protectDollars(root) {
+    for (const n of textNodes(root, MATH_IGNORE)) if (n.data.includes('\\$')) n.data = escapeDollarsOutsideMath(n.data);
+  }
+
+  function restoreDollars(root) {
+    for (const n of textNodes(root)) if (n.data.includes(DOLLAR)) n.data = n.data.split(DOLLAR).join('$');
+  }
 
   function renderMath() {
     if (typeof window.renderMathInElement !== 'function') {
@@ -1148,12 +1341,14 @@
         failing.push({ math, error });
         return math;
       };
+      protectDollars(slide.el);
       window.renderMathInElement(slide.el, {
         delimiters: MATH_DELIMITERS,
         throwOnError: false,
         preProcess: check,
         errorCallback: (message, err) => warn(`formula error: ${message} ${err || ''}`.trim(), { slide: slide.index }),
       });
+      restoreDollars(slide.el);
       const rendered = [...slide.el.querySelectorAll('.katex, .katex-error')];
       const source = k => {
         const ann = k.querySelector('annotation[encoding="application/x-tex"]');
@@ -1201,7 +1396,7 @@
     const target = resolveIndex(PARAMS.get('preview'));
     const index = Number.isInteger(target) && target >= 0 && target < slides.length ? target : 0;
     const slide = slides[index];
-    const step = PARAMS.has('step') ? Number(PARAMS.get('step')) : slide.N;
+    const step = PARAMS.has('step') ? Number(PARAMS.get('step')) : slide.N - 1;
     goTo(index, step);
   }
 
@@ -1216,6 +1411,7 @@
       if (!PREVIEW) buildTopbar();
       if (DEV) buildBadge();
       parseSlides(deckEl);
+      highlightCode(deckEl);
       checkCssUrls();
       initImages(deckEl);
       initBackgrounds(deckEl);
@@ -1233,6 +1429,7 @@
         document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
         buildNavigator();
+        if (DEV) buildComponentsPanel();
         buildAnimations();
         buildHint();
       }

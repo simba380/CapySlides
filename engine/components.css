@@ -1,4 +1,164 @@
 /* Deck engine — component library (SPEC §14). Source of truth: engine/components.css.
-   Components are added in P5; user CSS (unlayered) always overrides this layer. */
+   Building blocks distilled from the EfficientNet deck (original px x 1.125). Every component
+   works with data-step / data-step-class. Snippets: engine/components.html (also shown in the
+   ?dev Slides panel). User CSS (unlayered) always overrides this layer. */
 @layer components {
+
+  /* ── Text helpers ──────────────────────────────────────────────────── */
+  .title-mark { color: var(--title-mark); font-weight: 700; }
+  .accent-1 { color: var(--accent-1); }
+  .accent-2 { color: var(--accent-2); }
+  .accent-3 { color: var(--accent-3); }
+  .accent-4 { color: var(--accent-4); }
+  .muted { color: var(--muted); }
+  mark, .mark { background: rgba(255,240,100,.7); color: inherit; padding: 1px 4.5px; border-radius: 3.375px; }
+  .subtitle { font-size: var(--fs-body); font-weight: 400; color: var(--ink); margin-bottom: 18px; }
+  .punchline { text-align: center; font-size: var(--fs-body); font-weight: 700; margin-top: 2.4em; }
+
+  /* Title whose words are highlighted one per step: data-step-class="hi:2..2" on a span */
+  .step-title { font-size: var(--fs-title); font-weight: 400; color: var(--ink); margin-bottom: 33.75px; line-height: 1.3; }
+  .step-title .hi, .slide-title .hi { font-weight: 800; color: var(--eth); }
+
+  /* ── Numbered list (Motivation bullets): numbers come from a CSS counter ── */
+  .num-list { list-style: none; display: flex; flex-direction: column; gap: 20.25px; counter-reset: num; }
+  .num-item { display: flex; gap: 15.75px; align-items: flex-start; font-size: var(--fs-body); line-height: 1.5; counter-increment: num; }
+  .num-item::before {
+    content: counter(num); flex-shrink: 0; width: 29.25px; height: 29.25px; margin-top: 4.5px;
+    background: var(--eth); color: #fff; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: var(--fs-footnote); font-weight: 700; line-height: 1;
+  }
+  .num-sub { color: #444; font-size: var(--fs-sub); margin-top: 3.375px; }
+
+  /* ── Label + description rows (Problem / Insight / Method / Result) ─── */
+  .ld-list { display: flex; flex-direction: column; gap: 24.75px; }
+  .ld-row { display: flex; flex-direction: column; gap: 5.625px; }
+  .ld-row > .label { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+  .ld-row > .desc {
+    font-size: var(--fs-sub); color: #333; line-height: 1.5;
+    padding-left: 20.25px; border-left: 3.375px solid #ddd; margin-left: 2.25px;
+  }
+
+  /* ── Code block: <pre class="code-block" data-lang="python"> is coloured automatically ── */
+  .code-block {
+    font-family: var(--font-mono); font-size: var(--fs-code); line-height: 1.5;
+    background: #1e1e2e; color: #cdd6f4; padding: 15.75px 22.5px; border-radius: 9px;
+    margin-bottom: 29.25px; white-space: pre; overflow-x: auto; tab-size: 4;
+  }
+  .code-block .ck { color: #89dceb; }   /* keyword, self */
+  .code-block .cf { color: #89b4fa; }   /* function / class call */
+  .code-block .ca { color: #cba6f7; }   /* keyword argument */
+  .code-block .cn { color: #fab387; }   /* number */
+  .code-block .cs { color: #a6e3a1; }   /* string */
+  .code-block .cc { color: #7f849c; font-style: italic; }   /* comment */
+  /* Underline glows, typically switched on per step: data-step-class="hl-orange:2" */
+  .hl-orange {
+    text-decoration: underline 6.75px #f0a020; text-underline-offset: 4.5px;
+    filter: drop-shadow(0 0 5.625px rgba(240,160,32,.8)); transition: filter .3s ease;
+  }
+  .hl-teal {
+    text-decoration: underline 3.375px #2dd4bf; text-underline-offset: 4.5px;
+    filter: drop-shadow(0 0 4.5px rgba(45,212,191,.8)); transition: filter .3s ease;
+  }
+
+  /* ── Boxes ─────────────────────────────────────────────────────────── */
+  .formula-box {
+    background: rgba(240,160,20,.09); border-left: 4.5px solid #f0a020; border-radius: 6.75px;
+    padding: 18px 31.5px; font-size: 33.75px;
+    display: flex; align-items: center; gap: 27px; flex-wrap: wrap;
+  }
+  .formula-box.large {
+    background: rgba(240,160,20,.1); border-left-width: 6.75px; border-radius: 9px;
+    padding: 31.5px 54px; font-size: 45px; justify-content: center; width: 100%;
+  }
+  .formula-box.small { font-size: var(--fs-body); }
+  .info-box {
+    background: #f8f8f8; border-radius: 9px; padding: 13.5px 18px;
+    display: flex; flex-direction: column; gap: 11.25px; font-size: var(--fs-sub); line-height: 1.5;
+  }
+  .info-box ul { list-style: disc; padding-left: 31.5px; display: flex; flex-direction: column; gap: 5.625px; }
+  .conclusion-box {
+    border-left: 4.5px solid #e03030; background: rgba(224,48,48,.06); border-radius: 6.75px;
+    padding: 15.75px 22.5px; font-size: var(--fs-sub); line-height: 1.6; color: var(--ink);
+  }
+
+  /* ── Takeaway sections (Key takeaways, Outlook) ──────────────────────── */
+  .takeaways { display: flex; flex-direction: column; gap: var(--fs-body); margin-top: 9px; }
+  .tk-section { display: flex; flex-direction: column; gap: 11.25px; border: 2px solid #ddd; border-radius: 13.5px; padding: 18px 22.5px; }
+  .tk-section.borderless { border: none; padding: 0; }
+  .tk-header { font-size: var(--fs-body); font-weight: 700; color: var(--ink); display: flex; align-items: baseline; gap: 11.25px; }
+  .tk-header::before { content: "•"; font-size: 1.2em; }
+  .tk-sub { font-size: var(--fs-sub); color: #333; line-height: 1.55; display: flex; gap: 9px; margin-left: 31.5px; }
+  .tk-sub::before { content: "–"; flex-shrink: 0; color: #888; }
+  .tk-section > .formula-box { margin-left: 31.5px; }
+
+  /* ── Figure with overlay marks (Observation 1 ceiling line) ──────────── */
+  .figure-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .figure { position: relative; width: 100%; line-height: 0; }
+  .figure > img { width: 100%; display: block; border-radius: 6.75px; }
+  .overlay-line { position: absolute; left: 0; right: 0; border-top: 5.625px dashed #e03030; }
+  .overlay-label {
+    position: absolute; right: 0; line-height: 1.2; white-space: nowrap;
+    font-size: var(--fs-sub); font-weight: 700; color: #e03030;
+  }
+
+  /* ── Image strip / sprite panels (Resolution panels) ──────────────────── */
+  .image-strip { display: flex; gap: 18px; flex: 1; min-height: 0; align-items: stretch; margin-top: 9px; }
+  .strip-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+  .strip-img { flex: 1; min-height: 0; border-radius: 6.75px; overflow: hidden; }
+  .strip-caption { text-align: center; font-size: var(--fs-footnote); color: var(--muted); line-height: 1.4; }
+
+  /* ── Timeline (CNN arms race): events placed with style="left: 30%" ─── */
+  .timeline { flex: 1; min-height: 0; position: relative; }
+  .timeline::before {
+    content: ""; position: absolute; top: 50%; left: 2%; right: 2%; height: 3.375px;
+    background: #ccc; transform: translateY(-50%); border-radius: 2px;
+  }
+  .tl-event { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); }
+  .tl-above { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 15.75px; }
+  .tl-dot {
+    width: 24.75px; height: 24.75px; flex-shrink: 0; z-index: 1; border-radius: 50%;
+    background: var(--eth); border: 3.375px solid #fff; box-shadow: 0 0 0 2.8px var(--eth);
+  }
+  .tl-below { flex: 1; display: flex; flex-direction: column; align-items: center; padding-top: 15.75px; gap: 9px; }
+  .tl-year { font-size: var(--fs-body); font-weight: 700; color: var(--eth); }
+  .tl-name { font-size: var(--fs-title); font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .tl-sub  { font-size: var(--fs-body); color: var(--muted); text-align: center; white-space: nowrap; }
+  /* exactly as wide as the event name: width 0 keeps the image out of the event's width, min-width fills it */
+  .tl-below > img { width: 0; min-width: 100%; height: auto; object-fit: contain; border-radius: 4.5px; }
+
+  /* ── Data tables (results tables) ─────────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sub); line-height: 1.2; }
+  .data-table th, .data-table td { padding: 5.625px 11.25px; text-align: left; }
+  .data-table th { font-weight: 600; font-size: var(--fs-footnote); color: var(--ink); border-bottom: 2.25px solid #1a1a1a; }
+  .data-table thead tr.group th { color: var(--muted); border-bottom: 1px solid #ccc; text-align: center; }
+  .data-table thead tr.group + tr th { border-top: 2.25px solid #1a1a1a; }
+  .data-table td { color: #333; border-bottom: 1px solid #eee; }
+  .data-table.compact { font-size: 14.5px; line-height: 1.35; }
+  .data-table.compact th { font-size: 13.5px; padding: 5.625px 9px; }
+  .data-table.compact td { padding: 2.8px 9px; border-bottom: none; }
+  .data-table.centered td, .data-table.centered th { text-align: center; }
+  .data-table.centered td:first-child, .data-table.centered th:first-child { text-align: left; }
+  .data-table tr.row-group td { font-weight: 700; color: var(--ink); border-top: 1.7px solid #bbb; }
+  .data-table tbody tr.row-group:first-child td { border-top: none; }
+  .data-table tr.row-muted td { color: #555; }
+  .data-table tr.row-hl td { background: rgba(255,240,100,.55); }
+  .data-table tr.row-marker td:first-child { border-left: 3.375px solid #e03030; }
+  .data-table tr.row-total td { font-weight: 700; border-top: 2.25px solid #1a1a1a; }
+  .data-table .col-sep { border-left: 2.8px solid #888; }
+  .data-table .col-dbl { border-left: 3.375px double #888; }
+  .data-table .bold { font-weight: 700; }
+  .table-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .table-note { font-size: 12.5px; color: var(--muted); margin-top: 9px; font-style: italic; }
+
+  /* ── Bullets (plain lists with optional sub-items) ────────────────────── */
+  .bullets { list-style: disc; display: flex; flex-direction: column; gap: 9px; padding-left: 22.5px; font-size: var(--fs-sub); line-height: 1.5; }
+  .bullets .sub { list-style: none; margin-left: 18px; color: #444; }
+  .bullets .sub::before { content: "–  "; }
+
+  /* ── Layout: columns ──────────────────────────────────────────────────── */
+  .cols { display: flex; gap: 45px; flex: 1; min-height: 0; align-items: center; }
+  .cols > .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 31.5px; }
+  .cols > .col-fixed { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 40.5px; width: 100%; }
 }

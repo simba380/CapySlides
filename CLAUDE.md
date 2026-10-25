@@ -18,6 +18,9 @@ Single-file, offline HTML presentation template. **SPEC.md is the source of trut
 - Tooling: Python 3 standard library only.
 - Every `<img>` in a deck needs `width`/`height` = the image's natural size (SPEC §10.2). After adding or changing images, run `python tools/image_sizes.py path/to/X_presentation.html` (writes a `.bak`); `--check` only reports and exits 1 if any are missing or wrong.
 - Animation files (`*_animations.html`) start from `template/template_animations.html` and must keep its `ANIM-VENDOR` and `ANIM-CONTRACT` blocks: without the contract's `ready` handshake a deck shows the file as missing. Register each file in `DECK.animations`; presets come from `data-params` via the URL (`readURLParams` / `window.applyPreset`).
+- Steps are **0-based**: step 0 = slide title (+ anything with `data-step="0"`), steps 1…k = explicitly assigned content, one final step = all unmarked content (SPEC §8.3).
+- Reuse components instead of writing per-slide CSS: classes in `engine/components.css`, copy-paste snippets in `engine/components.html` (also shown via the `?dev` **▦ Components** button). A new reusable component = CSS + a `<template>` entry there.
+- `examples/components/` is the showcase deck (EfficientNet slides rebuilt with the components). Edit `components_presentation.src.html`; `tools/build.py` generates `components_presentation.html`. Never hand-edit the generated file.
 - `docs/example_presentation_EfficientNet/` is the untouched visual/behavioural reference.
 
 ## Authoring decks
