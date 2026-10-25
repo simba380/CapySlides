@@ -83,8 +83,8 @@ def fill_deck(template: str, v: dict, animations: list[dict]) -> str:
 
 
 def fill_animation(template: str, name: str, presenter: str) -> str:
-    template = template.replace("<title>Animation template — Simon Meier</title>",
-                                f"<title>{html.escape(name)} — {html.escape(presenter)}</title>", 1)
+    title = f"{name} — {presenter}" if presenter else name
+    template = template.replace("<title>Animation template — Simon Meier</title>", f"<title>{html.escape(title)}</title>", 1)
     return template.replace("<h1>Animation template</h1>", f"<h1>{html.escape(name)}</h1>", 1)
 
 

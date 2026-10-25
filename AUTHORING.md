@@ -27,6 +27,7 @@ All tools live in the CustomPresentations repository (`tools/`) and work on any 
 | Step | Command |
 |---|---|
 | Create a presentation in `presentations/<name>` (asks for title, course, animation names …) | `python tools/new.py [name]` |
+| Add another animation later (creates the file, registers it in `DECK.animations`) | `python tools/add_animation.py <folder> "Name"` |
 | Edit `<prefix>_presentation.html` (only the **user zone**, see §2) | — |
 | After adding/changing images: write their sizes into `<img>` tags | `python tools/image_sizes.py <deck.html>` |
 | Check the deck (problems per slide and step, image sizes, engine version) | `python tools/check.py <deck.html or folder>` |
@@ -351,8 +352,9 @@ Step numbers in the snippets are examples.
 
 ## 8. Animations
 
-- Start every animation from `template_animations.html` (`tools/new.py` does this when you name an
-  animation). Keep its `ANIM-VENDOR` and `ANIM-CONTRACT` blocks: without the contract the deck shows
+- Start every animation from `template_animations.html`: `tools/new.py` does this when you name an
+  animation, `tools/add_animation.py <folder> "Name"` adds one to an existing project (file + entry in
+  `DECK.animations`). Keep its `ANIM-VENDOR` and `ANIM-CONTRACT` blocks: without the contract the deck shows
   `animation "x.html" not found`.
 - **Panels** (as in the EfficientNet animation): each sidebar card `<div class="scard" data-panel="ID">`
   belongs to one `<div class="panel" data-panel="ID">`. Clicking a card opens/closes its panel; at most

@@ -118,7 +118,8 @@ CustomPresentations/
 │   ├── build.py                    ← assembles template/*.html from engine/ (§16)
 │   ├── update.py                   ← replaces the engine block in an existing deck
 │   ├── image_sizes.py              ← writes <img> width/height from the image files
-│   └── new.py                      ← scaffolds a new presentation folder
+│   ├── new.py                      ← scaffolds a new presentation folder
+│   └── add_animation.py            ← adds an animation file to an existing project
 ├── presentations/                 ← the user's presentation projects (one self-contained folder each, created by tools/new.py)
 │   └── EfficientNet/               ← the original talk rebuilt with the template (complete example)
 ├── template/
@@ -519,8 +520,9 @@ All components live in `@layer components` (`engine/components.css`), use the de
 
 | Tool | Purpose |
 |---|---|
-| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` (engine and contract blocks inlined between markers, stamped with the engine version), every `examples/*/<name>_presentation.html` from its `.src.html`, and `AUTHORING.md` from `engine/AUTHORING.src.md` + the component catalog. `--check` covers all of them. |
+| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` (engine and contract blocks inlined between markers, stamped with the engine version), and `AUTHORING.md` from `engine/AUTHORING.src.md` + the component catalog. `--check` covers all of them. |
 | `tools/new.py [name]` | **Interactive** (R12‑4): creates `presentations/<name>` (R13‑2; `--parent` overrides); asks for project name, prefix, title, subtitle, presenter, course title/type, semester, then animation names one per prompt (empty = done). Writes the filled deck, one `<name>_animations.html` per animation (registered in `DECK.animations`), the cover image, and the AI helpers `CLAUDE.md` + `AUTHORING.md`. Answers can be piped in. |
+| `tools/add_animation.py <deck or folder> [name]` | Creates `<Name>_animations.html` from the current starter animation and appends `{ id, name, file }` to `DECK.animations` in the deck's config script (key created if missing, comments and formatting kept, `.bak` backup). Refuses an existing file or id (R14‑1). |
 | `tools/check.py <deck or folder> [--json]` | Runs each deck headless (offline) and prints every problem per slide and step (= the `?dev` view), `<img>` tags with missing/wrong sizes, and outdated engine/contract versions. Exit 1 if anything needs fixing (R12‑1). |
 | `tools/update.py <deck or folder> [--dry-run] [--force]` | Replaces the `DECK-ENGINE` block (decks) and `ANIM-VENDOR` + `ANIM-CONTRACT` blocks (animation files), verifies that everything outside the blocks is byte-identical, writes `.bak` backups, refreshes `CLAUDE.md` (managed block only) and `AUTHORING.md`. Refuses downgrades without `--force`. |
 | `tools/pack.py <folder> [--out DIR] [--force] [--no-check]` | Writes `<prefix>.zip` (top folder `<prefix>/`) with all presentation files but without `CLAUDE.md`, `AUTHORING.md`, `*.bak`, zips and hidden files; first checks a copy in a temporary folder outside the repository, so the zip is proven self-contained (R12‑5). |
@@ -529,7 +531,7 @@ All components live in `@layer components` (`engine/components.css`), use the de
 
 `TOOLS.html` (repository root) documents every command and in-browser helper in one page; a test fails if a tool is missing there (R12‑6). Helpers shared by the tools: `_blocks.py` (markers), `_browser.py` (headless runs), `_deckfolder.py` (decks, versions, AI helper files).
 
-**Versioning and compatibility (R12‑2):** the engine follows semver (`engine/VERSION`, now **1.0.0**). Within 1.x, updates never change the meaning of existing attributes, classes or `DECK` fields, so `update.py` is always safe; a breaking change requires 2.0 plus migration notes in `AUTHORING.md`. Each deck carries its own engine version; the central `AUTHORING.md` states the version it describes, and the folder's `CLAUDE.md` tells AI agents to update an older deck before editing it.
+**Versioning and compatibility (R12‑2):** the engine follows semver (`engine/VERSION`, started at **1.0.0**). Within 1.x, updates never change the meaning of existing attributes, classes or `DECK` fields, so `update.py` is always safe; a breaking change requires 2.0 plus migration notes in `AUTHORING.md`. Each deck carries its own engine version; the central `AUTHORING.md` states the version it describes, and the folder's `CLAUDE.md` tells AI agents to update an older deck before editing it.
 
 Implementation language: **Python 3, standard library only** (decision R2‑4), e.g. `python tools/update.py MyTalk/MyTalk_presentation.html`. Engine versioning: semver in the marker. A deck built with engine 1.x must keep working with any 1.y (attribute/config names are the public API).
 
@@ -656,3 +658,4 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R13‑4 | The ported deck gets a TOC with the talk's sections (slide numbers shift by one). | Round 13 |
 | D‑15 | Animation overlay instances are queued before the navigator thumbnails; the overall handshake timeout is 15 s. Engine 1.0.1. | P7 |
 | D‑16 | Cleanup pass (engine 1.0.2): `new.py` escapes `</script>` in config values; closed overlays are `visibility:hidden` (not focusable); an open panel keeps its own keys (Esc closes) and an open animation overlay gets no deck keys; math in navigator/picker/component labels is rendered; the starter animation ignores unknown/duplicate panel ids; `check.py` waits until images and animations have settled and reports uncaught JS errors; the AUTHORING example slide is tested. | Cleanup |
+| R14‑1 | `tools/add_animation.py` adds an animation to an existing project (file from the current starter + entry in `DECK.animations`); animation files are never copied by hand. | Round 14 |

@@ -64,7 +64,8 @@
   </div>
   <p>All projects live in <code>presentations/</code> (each folder is self-contained and can be zipped on its own);
     <code>presentations/EfficientNet/</code> is a complete example. Old presentation and a newer template?
-    <code>update.py</code> brings it to the newest engine first.</p>
+    <code>update.py</code> brings it to the newest engine first. Another animation later?
+    <code>add_animation.py</code> creates and registers it.</p>
 
   <h2 id="cli">Command-line tools</h2>
 
@@ -77,6 +78,15 @@
     <p>Creates <code>MyTalk_presentation.html</code>, one <code>&lt;name&gt;_animations.html</code> per animation
       (already registered in <code>DECK.animations</code>), <code>images/eth_zurich_aerial.png</code>, and the AI helpers
       <code>CLAUDE.md</code> + <code>AUTHORING.md</code>. Answers can be piped in, one per line.</p>
+  </div>
+
+  <div class="card" id="tool-add-animation">
+    <h3>tools/add_animation.py <span class="when">another animation for an existing presentation</span></h3>
+    <p>Creates <code>&lt;Name&gt;_animations.html</code> from the current starter animation (panel system included) and
+      registers it in <code>DECK.animations</code>, after the existing entries. Only that list in the deck changes
+      (backup <code>.bak</code>). Prints the <code>&lt;section data-type="animation"&gt;</code> line to show it as a slide.</p>
+    <pre>python tools/add_animation.py "presentations\MyTalk" "Model Scaling"   # name asked if omitted</pre>
+    <p>Pass the deck file instead of the folder if the folder holds several decks. Refuses an existing file or id.</p>
   </div>
 
   <div class="card" id="tool-check">
@@ -158,7 +168,7 @@ python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</
     <tr><td><code>images/</code></td><td>Every image the deck and animations use</td><td>yes</td></tr>
     <tr><td><code>CLAUDE.md</code></td><td>Pointer for AI agents: central guide, version rule, commands</td><td>no</td></tr>
     <tr><td><code>AUTHORING.md</code></td><td>Copy of the guide matching this deck's engine</td><td>no</td></tr>
-    <tr><td><code>*.bak</code></td><td>Backups written by update.py / image_sizes.py</td><td>no</td></tr>
+    <tr><td><code>*.bak</code></td><td>Backups written by update.py / image_sizes.py / add_animation.py</td><td>no</td></tr>
   </table>
 
   <h2 id="dev">Repository development</h2>

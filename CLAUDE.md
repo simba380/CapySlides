@@ -12,6 +12,8 @@ A presentation is a self-contained project folder `presentations/<name>/` (the u
 submits it; it must never depend on this repository).
 
 1. New presentation: `python tools/new.py <name>` (interactive; answers can be piped, one per line).
+   Another animation for an existing project: `python tools/add_animation.py presentations/<name> "Name"`
+   (never copy animation files by hand).
 2. Read `AUTHORING.md` §1–§8 before writing slides. Key rules:
    - Edit only the **user zone** of `<name>_presentation.html`: `<style id="deck-user-styles">`,
      `const DECK = {…}`, and the `<section>`s in `<main id="deck">`.

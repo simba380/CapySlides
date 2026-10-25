@@ -45,6 +45,9 @@ python tools/new.py MyTalk
 6. **Submit** — `python tools/pack.py presentations/MyTalk` writes `presentations/MyTalk.zip`
    (only the presentation files; verified to work on its own).
 
+Another animation later: `python tools/add_animation.py presentations/MyTalk "Model Scaling"` creates the
+file and registers it in the deck.
+
 Every command with all options: **`TOOLS.html`** (open it in the browser).
 
 ## Presenting
@@ -105,7 +108,7 @@ Within 1.x updates never change the meaning of existing attributes.
 |---|---|
 | `presentations/` | Your presentation projects (one self-contained folder each) |
 | `template/` | The generated starter deck and starter animation (`new.py` copies them) |
-| `tools/` | `new`, `check`, `image_sizes`, `update`, `pack`, `build`, `fetch_vendor` + tests |
+| `tools/` | `new`, `add_animation`, `check`, `image_sizes`, `update`, `pack`, `build`, `fetch_vendor` + tests |
 | `engine/` | Source of the engine (JS/CSS), components, starter shells, vendored fonts/KaTeX |
 | `docs/example_presentation_EfficientNet/` | The original hand-written deck (reference, untouched) |
 | `AUTHORING.md` | How to write slides (for people and AI) |

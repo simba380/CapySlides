@@ -89,6 +89,61 @@ class NewTest(ToolTestCase):
         self.assertIn("presentations", run("new.py", "--help").stdout)
 
 
+class AddAnimationTest(ToolTestCase):
+    def test_creates_file_and_registers_it_after_the_existing_ones(self):
+        old = self.deck.read_text(encoding="utf-8")
+        proc = run("add_animation.py", str(self.folder), "Third One")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        anim = (self.folder / "Third_One_animations.html").read_text(encoding="utf-8")
+        self.assertIn("<h1>Third One</h1>", anim)
+        self.assertIn("<title>Third One — Simon Meier</title>", anim)
+        self.assertEqual(_blocks.version_of(anim, _blocks.ANIM_CONTRACT), build.engine_version())
+        second = '        { id: "Second", name: "Second", file: "Second_animations.html" },\n'
+        third = '        { id: "Third_One", name: "Third One", file: "Third_One_animations.html" },\n'
+        self.assertEqual(self.deck.read_text(encoding="utf-8"), old.replace(second, second + third, 1))
+        self.assertEqual((self.folder / "Talk_presentation.html.bak").read_text(encoding="utf-8"), old)
+        self.assertIn('data-anim="Third_One"', proc.stdout)
+
+    def test_refuses_duplicates_and_ambiguous_folders(self):
+        self.assertEqual(run("add_animation.py", str(self.folder), "Second").returncode, 2)   # file exists
+        (self.folder / "Second_animations.html").unlink()
+        proc = run("add_animation.py", str(self.folder), "Second")                           # still registered
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("already has an entry", proc.stderr)
+        self.assertFalse((self.folder / "Second_animations.html").exists())
+        shutil.copy(self.deck, self.folder / "Other_presentation.html")
+        self.assertEqual(run("add_animation.py", str(self.folder), "X").returncode, 2)
+        self.assertEqual(run("add_animation.py", str(self.deck), "X").returncode, 0)
+
+    def test_config_variants(self):
+        import add_animation as aa
+        entry = {"id": "main", "name": "Main", "file": "main_animations.html"}
+        line = '{ id: "main", name: "Main", file: "main_animations.html" },'
+
+        def deck(body: str, nl: str = "\n") -> str:
+            return nl.join(['<script id="deck-config">', "    const DECK = {", *body.split("\n"), "    };", "  </script>",
+                            "<script>const x = { animations: [] };</script>"])
+
+        # The starter's comment-only list (its commented example uses the same id).
+        starter = '      animations: [\n        // { id: \'main\', name: \'My animation\', file: \'x.html\' },\n      ],'
+        self.assertIn(f"x.html' }},\n        {line}\n      ],", aa.register(deck(starter), entry))
+        # One-line empty list, last entry without trailing comma, missing key, CRLF file.
+        self.assertIn(f"animations: [\n        {line}\n      ],", aa.register(deck("      animations: [],"), entry))
+        out = aa.register(deck("      animations: [\n        { id: 'a', file: 'a.html' }\n      ],"), entry)
+        self.assertIn(f"{{ id: 'a', file: 'a.html' }},\n        {line}\n      ],", out)
+        out = aa.register(deck("      title: 'T' // no comma"), entry)
+        self.assertIn(f"title: 'T', // no comma\n      animations: [\n        {line}\n      ],\n    }};", out)
+        out = aa.register(deck("      animations: [],", "\r\n"), entry)
+        self.assertIn(f"animations: [\r\n        {line}\r\n      ],\r\n", out)
+        self.assertNotIn("\n", out.replace("\r\n", ""))
+        # The engine's own `animations: []` default (outside the config script) is never touched.
+        self.assertTrue(out.endswith("<script>const x = { animations: [] };</script>"))
+        with self.assertRaises(aa.ConfigError):
+            aa.register(deck("      animations: [\n        { id: 'main', file: 'm.html' },\n      ],"), entry)
+        with self.assertRaises(aa.ConfigError):
+            aa.register(deck("      animations: ANIMS,"), entry)
+
+
 class UpdateTest(ToolTestCase):
     def age(self, path: Path, name: str, version: str, body: str = "old engine") -> str:
         text = _blocks.replace(path.read_text(encoding="utf-8"), name, _blocks.wrap(name, version, body))
@@ -149,6 +204,15 @@ class CheckAndPackTest(ToolTestCase):
         self.assertIn('Slide 4 "Slide 4 – title", step 1: image "missing.png" not found', out)
         self.assertIn('points outside the presentation folder', out)
         self.assertIn("eth_zurich_aerial.png has missing/wrong width/height (1760x862)", out)
+
+    def test_added_animation_passes_check(self):
+        self.assertEqual(run("add_animation.py", str(self.folder), "Third").returncode, 0)
+        deck = self.deck.read_text(encoding="utf-8")
+        deck = deck.replace('<section data-type="black">',
+                            '<section data-type="animation" data-anim="Third" data-title="Third"></section>\n    <section data-type="black">', 1)
+        self.deck.write_text(deck, encoding="utf-8", newline="\n")
+        proc = run("check.py", str(self.folder), "--json")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_pack_zips_only_presentation_files(self):
         (self.folder / "Talk_presentation.html.bak").write_text("backup", encoding="utf-8")
