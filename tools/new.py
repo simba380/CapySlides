@@ -56,7 +56,8 @@ def slug(text: str) -> str:
 
 
 def js(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)
+    """A JS string literal that is also safe inside <script> ("</script>" must not end the block)."""
+    return json.dumps(value, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
 def fill_deck(template: str, v: dict, animations: list[dict]) -> str:

@@ -3,7 +3,7 @@
     python tools/build.py           write template/template_presentation.html,
                                     template/template_animations.html, template/images/...,
                                     and AUTHORING.md from engine/AUTHORING.src.md
-    python tools/build.py --check   exit 1 if template/ differs from a fresh build
+    python tools/build.py --check   exit 1 if template/ or AUTHORING.md differ from a fresh build
 
 Everything a deck needs at runtime (fonts, KaTeX, engine CSS/JS) is inlined between
 marker blocks (tools/_blocks.py), so the result opens offline via file://.
@@ -276,7 +276,7 @@ def stale(outputs: dict[str, bytes], out_dir: Path) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--check", action="store_true", help="verify template/ is up to date; write nothing")
+    ap.add_argument("--check", action="store_true", help="verify the generated files are up to date; write nothing")
     args = ap.parse_args()
     try:
         outputs = build_outputs()
@@ -289,7 +289,7 @@ def main() -> int:
         files += stale(guide, ROOT)
         for rel in files:
             print(f"stale: {rel}", file=sys.stderr)
-        print("template up to date" if not files else "run: python tools/build.py")
+        print("generated files up to date" if not files else "run: python tools/build.py")
         return 1 if files else 0
     write(outputs, TEMPLATE)
     write(guide, ROOT)

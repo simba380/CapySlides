@@ -29,6 +29,9 @@ CANDIDATES = (
 )
 
 PROBE_WRAPPER = """<script id="deck-probe">
+window.__deckErrors = [];   // uncaught errors anywhere in the page (also during the engine's boot)
+addEventListener('error', e => window.__deckErrors.push(String(e.message || e)));
+addEventListener('unhandledrejection', e => window.__deckErrors.push('unhandled rejection: ' + String(e.reason)));
 (async () => {
   if (document.readyState === 'loading') await new Promise(r => addEventListener('DOMContentLoaded', r));
   await new Promise(r => setTimeout(r, 0));
@@ -101,7 +104,7 @@ def dump_probe(url: str, label: str, size=(1280, 800), budget_ms: int = 3000):
     return data["result"]
 
 
-def probe_file(deck: Path, probe_js: str, query: str = "", budget_ms: int = 8000):
+def probe_file(deck: Path, probe_js: str, query: str = "", budget_ms: int = 40000):
     """Run a probe on an existing deck file in place: a temporary copy is written next to it (so
     images/ and animation files resolve as usual) and removed afterwards."""
     temp = deck.with_name(f".deck-check-{deck.stem}.html")

@@ -68,6 +68,16 @@ class NewTest(ToolTestCase):
         self.assertIn(f"engine v{build.engine_version()}", claude)
         self.assertEqual((self.folder / "AUTHORING.md").read_text(encoding="utf-8"), build.authoring_text(build.engine_version()))
 
+    def test_script_safe_values(self):
+        # A "</script>" in a title must not end the DECK config script (regression).
+        answers = "Evil\nA </script><b>x</b> B\n\n\n\n\n\n\n"
+        self.assertEqual(run("new.py", "Evil", "--parent", str(self.tmp), stdin=answers).returncode, 0)
+        deck = (self.tmp / "Evil" / "Evil_presentation.html").read_text(encoding="utf-8")
+        config = deck[deck.index('<script id="deck-config">'):]
+        config = config[:config.index("</script>")]
+        self.assertIn('title:     "A <\\/script><b>x<\\/b> B",', config)
+        self.assertIn("<title>A &lt;/script&gt;&lt;b&gt;x&lt;/b&gt; B — Simon Meier</title>", deck)
+
     def test_refuses_existing_project_and_bad_names(self):
         self.assertEqual(run("new.py", "Talk", "--parent", str(self.tmp), stdin=ANSWERS).returncode, 2)
         self.assertEqual(run("new.py", "bad name!", "--parent", str(self.tmp)).returncode, 2)

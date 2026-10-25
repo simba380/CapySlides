@@ -1,8 +1,9 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
-   Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
-   §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
-   §10 assets (missing images → placeholders), §9 animations, §13 math, §14 components
-   (code highlighting + the ?dev component catalog). */
+   One IIFE, sections in boot order: config → canvas → slides/steps → assets → navigation →
+   overlays/thumbnails → animations → navigator/dev UI → input → code/math → boot.
+   SPEC: §6 canvas, §7 config, §8 slides/steps/navigation, §9 animations, §10 assets,
+   §11 preview mode, §12 title/TOC/footer/buttons/navigator/components panel, §13 math, §14 components.
+   Public API: window.Deck (see the end of this file and TOOLS.html). */
 (() => {
   'use strict';
 
@@ -29,7 +30,7 @@
   const HINT_MS = 4000;      // "← → to navigate" fades after this
   const DOLLAR = '\uE024';   // stands in for an escaped \$ while KaTeX scans the text
   const MATH_IGNORE = 'script, noscript, style, textarea, pre, code, option';
-  // Component catalog from engine/components.html (injected by tools/build.py): [{ name, from, html }].
+  // Component catalog from engine/components.html (injected by tools/build.py): [{ name, from, html, height? }].
   const COMPONENTS = __COMPONENT_CATALOG__;
   const ANIM_READY_MS = 1500;   // after an animation iframe's load event, a `ready` must have arrived …
   const ANIM_TOTAL_MS = 15000;  // … and at the latest this long after its src was set (SPEC §9.5;
@@ -719,7 +720,7 @@
     return true;
   }
 
-  // ── Overlays (☰ Slides navigator now, the animation picker in P4) ─────────
+  // ── Overlays: ☰ Slides navigator, ▦ Components panel, animation picker ───
   // One overlay is open at a time. While open, forward/back are ignored (SPEC §8.4).
 
   const overlays = [];
@@ -953,6 +954,7 @@
       row.append(thumb, rowInfo);
       pickerRows.push(row);
     }
+    renderLabelMath(picker.list);
     for (const row of pickerRows) {
       row.addEventListener('click', () => {
         closeOverlay(picker);
@@ -1029,6 +1031,7 @@
       nav.list.appendChild(row);
       navRows.push(row);
     }
+    renderLabelMath(nav.list);   // slide titles may contain $…$
     navButton = h('button', 'top-btn', '☰ Slides');
     navButton.id = 'nav-btn';
     navButton.type = 'button';
@@ -1125,11 +1128,11 @@
 
   function onKeyDown(e) {
     if (e.defaultPrevented || e.altKey || e.metaKey || isEditable(e.target)) return;
-    if (e.key === 'Escape' && openOverlay) {
-      e.preventDefault();
-      closeOverlay(openOverlay);
+    if (openOverlay) {   // an open panel keeps its own keys (scrolling, buttons, folds); Esc closes it
+      if (e.key === 'Escape') { e.preventDefault(); closeOverlay(openOverlay); }
       return;
     }
+    if (state.animOpen !== null) return;   // the animation overlay has the keyboard
     const forward = FORWARD_KEYS.has(e.key);
     if (!forward && !BACK_KEYS.has(e.key)) return;
     e.preventDefault();
@@ -1252,11 +1255,7 @@
         }
       }
       highlightCode(stage, true);
-      if (typeof window.renderMathInElement === 'function') {
-        protectDollars(stage);
-        window.renderMathInElement(stage, { delimiters: MATH_DELIMITERS, throwOnError: false });
-        restoreDollars(stage);
-      }
+      renderLabelMath(stage);
       preview.appendChild(stage);
 
       const code = document.createElement('details');
@@ -1337,6 +1336,14 @@
 
   function restoreDollars(root) {
     for (const n of textNodes(root)) if (n.data.includes(DOLLAR)) n.data = n.data.split(DOLLAR).join('$');
+  }
+
+  /** KaTeX for panel labels (titles copied from slides keep their $…$ source). */
+  function renderLabelMath(root) {
+    if (typeof window.renderMathInElement !== 'function') return;
+    protectDollars(root);
+    window.renderMathInElement(root, { delimiters: MATH_DELIMITERS, throwOnError: false });
+    restoreDollars(root);
   }
 
   function renderMath() {

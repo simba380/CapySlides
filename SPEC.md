@@ -4,6 +4,10 @@
 **Reference:** `docs/example_presentation_EfficientNet/` (kept untouched as the visual and behavioural baseline)
 **Author:** Simon Meier (requirements) · Claude (spec)
 
+> This is the **design document** (behaviour, architecture, decision log). For *using* the template
+> read `README.md` (overview, quick start, troubleshooting), `AUTHORING.md` (writing slides) and
+> `TOOLS.html` (every command and helper).
+
 ---
 
 ## 1. Goals and non-goals
@@ -651,3 +655,4 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R13‑3 | `presentations/EfficientNet/` (the full rebuild, made like a normal project) replaces `examples/components/`; the example build step is removed. | Round 13 |
 | R13‑4 | The ported deck gets a TOC with the talk's sections (slide numbers shift by one). | Round 13 |
 | D‑15 | Animation overlay instances are queued before the navigator thumbnails; the overall handshake timeout is 15 s. Engine 1.0.1. | P7 |
+| D‑16 | Cleanup pass (engine 1.0.2): `new.py` escapes `</script>` in config values; closed overlays are `visibility:hidden` (not focusable); an open panel keeps its own keys (Esc closes) and an open animation overlay gets no deck keys; math in navigator/picker/component labels is rendered; the starter animation ignores unknown/duplicate panel ids; `check.py` waits until images and animations have settled and reports uncaught JS errors; the AUTHORING example slide is tested. | Cleanup |

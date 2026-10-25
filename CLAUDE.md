@@ -1,30 +1,70 @@
-# CustomPresentations — notes for AI agents
+# CustomPresentations — instructions for AI agents
 
-Single-file, offline HTML presentation template. **SPEC.md is the source of truth** for behaviour and decisions (§20 decision log is binding); work through the phases in SPEC §18 in order.
+Offline, single-file HTML presentations (ETH style) with step reveals, KaTeX, interactive animations
+and tooling. Start with `README.md` (overview), `AUTHORING.md` (how to write slides),
+`TOOLS.html` (every command), `SPEC.md` (design + binding decision log §20).
 
-## Repository rules
-- `engine/` is the source of truth for engine code (`deck.css`, `components.css`, `deck.js`, `anim-contract.js`) and for the template skeletons (`engine/shell/`). **Never hand-edit `template/*.html`.** They are generated.
-- After any change in `engine/`, run:
+Most tasks are one of two kinds. Find out which one first.
+
+## A. Creating or editing a presentation (the common case)
+
+A presentation is a self-contained project folder `presentations/<name>/` (the user zips and
+submits it; it must never depend on this repository).
+
+1. New presentation: `python tools/new.py <name>` (interactive; answers can be piped, one per line).
+2. Read `AUTHORING.md` §1–§8 before writing slides. Key rules:
+   - Edit only the **user zone** of `<name>_presentation.html`: `<style id="deck-user-styles">`,
+     `const DECK = {…}`, and the `<section>`s in `<main id="deck">`.
+   - **Never read or edit past `<!-- DECK-ENGINE:BEGIN`** (≈1 MB generated code, base64 on very long
+     lines). Same for `ANIM-VENDOR` / `ANIM-CONTRACT` in animation files.
+   - Steps are **0-based**: `data-step="0"` = with the title; `"1"`, `"2"`, … = one per click;
+     unmarked content = one final step.
+   - Reuse the components (§7 of AUTHORING.md, `?dev` → ▦ Components) instead of new CSS.
+   - Images go into `images/`; every `<img>` needs `width`/`height` → `python tools/image_sizes.py <deck>`.
+   - Never reference files outside the project folder (no `../`, absolute paths or URLs).
+3. After every change: `python tools/check.py presentations/<name>`; fix everything it reports
+   (exit code 0 = clean).
+4. If the deck's engine version is older than `engine/VERSION`: `python tools/update.py presentations/<name>`
+   first (only the generated blocks change).
+5. Submission: `python tools/pack.py presentations/<name>` → `presentations/<name>.zip`.
+
+`presentations/EfficientNet/` is a complete real example (the original talk rebuilt).
+`docs/example_presentation_EfficientNet/` is the untouched original — never edit it.
+
+## B. Changing the template, engine or tools
+
+- **Source of truth:** `engine/` (`deck.js`, `deck.css`, `components.css`, `components.html`,
+  `anim-contract.js`, `shell/*.html`, `AUTHORING.src.md`, `VERSION`). `template/*.html` and
+  `AUTHORING.md` are generated — never hand-edit them.
+- After every engine change:
   ```
   python tools/build.py
   python -m unittest discover tools/tests
   ```
-  `python tools/build.py --check` fails if `template/` is stale.
-- Engine behaviour is tested in `tools/tests/test_engine.py`: fixture decks (`tools/tests/fixtures/*.html`, shells with the `<!-- @@DECK_ENGINE@@ -->` placeholder) run in headless Edge/Chrome via `file://` with the network disabled. Built fixtures are left in `.tmp/fixtures/` for manual viewing. Add a fixture + test for every new engine feature.
-- Open any deck with `?dev` (e.g. `…_presentation.html?dev`): the ☰ Slides navigator then lists every problem per slide (with the step where it shows; clicking jumps there), deck-wide problems in a red box on top, and the badge bottom-left. `Deck.warnings` / `Deck.problems` / `Deck.state` / `Deck.goTo()` are available in the console. `?preview=<index|id>[&step=k]` renders a single slide (used by thumbnails).
-- Third-party assets are pinned in `engine/vendor/manifest.json` and hash-locked in `lock.json`. Change versions only via the manifest, then `python tools/fetch_vendor.py`. Never edit vendored files.
-- Marker blocks (`DECK-ENGINE`, `ANIM-VENDOR`, `ANIM-CONTRACT`, see `tools/_blocks.py`) are a stable public contract. Don't change their format.
-- Built files contain ~1 MB base64 lines inside the marker blocks. Don't read past a `:BEGIN` marker; read the sources in `engine/` instead.
-- Tooling: Python 3 standard library only.
-- Every `<img>` in a deck needs `width`/`height` = the image's natural size (SPEC §10.2). After adding or changing images, run `python tools/image_sizes.py path/to/X_presentation.html` (writes a `.bak`); `--check` only reports and exits 1 if any are missing or wrong.
-- Animation files (`*_animations.html`) start from `template/template_animations.html` and must keep its `ANIM-VENDOR` and `ANIM-CONTRACT` blocks: without the contract's `ready` handshake a deck shows the file as missing. Register each file in `DECK.animations`; presets come from `data-params` via the URL (`readURLParams` / `window.applyPreset`).
-- Steps are **0-based**: step 0 = slide title (+ anything with `data-step="0"`), steps 1…k = explicitly assigned content, one final step = all unmarked content (SPEC §8.3).
-- Reuse components instead of writing per-slide CSS: classes in `engine/components.css`, copy-paste snippets in `engine/components.html` (also shown via the `?dev` **▦ Components** button). A new reusable component = CSS + a `<template>` entry there.
-- `presentations/` holds the user's presentation projects (each self-contained, created by `tools/new.py`). `presentations/EfficientNet/` is the full rebuild of the original deck and the reference for what is possible; it is a normal project (edit its user zone, update it with `tools/update.py`), not a generated file.
-- `docs/example_presentation_EfficientNet/` is the untouched visual/behavioural reference.
+  `python tools/build.py --check` fails if a generated file is stale.
+- **Version:** bump `engine/VERSION` (semver) for every engine change, then update the example
+  project: `python tools/update.py presentations/EfficientNet` (delete the `.bak` files afterwards).
+  Within 1.x never change the meaning of existing attributes, classes or `DECK` fields; breaking
+  changes need 2.0 and migration notes in `engine/AUTHORING.src.md`.
+- **Tests:** engine tests run fixture decks (`tools/tests/fixtures/*.html`, shells with
+  `<!-- @@DECK_ENGINE@@ -->`) in headless Chrome/Edge via `file://` with the network blocked
+  (`tools/_browser.py` picks a browser that really works; tests skip without one). Built fixtures
+  stay in `.tmp/fixtures/`. Add a fixture + test for every engine feature and every bug fix. Probes
+  share helper names (`$`, `vis`, `st`, `key`) — don't redeclare them.
+- **Components:** a reusable component = CSS in `engine/components.css` + a `<template>` in
+  `engine/components.html` (shown in the ▦ Components panel and in AUTHORING.md).
+- **Tools:** Python 3 standard library only. Every `tools/*.py` script must be documented in
+  `TOOLS.html` (a test enforces it). Shared helpers: `_blocks.py` (marker blocks — a stable public
+  contract, don't change the format), `_browser.py` (headless runs), `_deckfolder.py` (projects,
+  versions, the managed CLAUDE.md block).
+- **Vendored assets** (fonts, KaTeX) are pinned in `engine/vendor/manifest.json` and hash-locked in
+  `lock.json`; change them only via the manifest + `python tools/fetch_vendor.py`.
+- **Decisions:** record behaviour changes in `SPEC.md` (§20 decision log) and keep `README.md`,
+  `AUTHORING.src.md` and `TOOLS.html` in sync.
 
-## Authoring decks
-- `AUTHORING.md` is the guide for writing presentations (generated from `engine/AUTHORING.src.md` + the component catalog by `tools/build.py`; never edit it directly). `TOOLS.html` lists every command and helper — add any new tool there (a test enforces it).
-- Presentation folders are **self-contained** and never depend on this repository (they get zipped and submitted). Tools only act on them: `tools/new.py` (create, interactive), `tools/check.py` (problems per slide/step), `tools/image_sizes.py`, `tools/update.py` (newer engine, content untouched), `tools/pack.py` (verified zip without CLAUDE.md/AUTHORING.md).
-- Each presentation folder has a managed `CLAUDE.md` block (pointer to the central `AUTHORING.md` + version rule) and an `AUTHORING.md` copy matching its engine; `update.py` refreshes both.
-- Compatibility: engine versions are semver. Within 1.x never change the meaning of existing attributes, classes or `DECK` fields; a breaking change needs 2.0 and migration notes in `AUTHORING.md`. Bump `engine/VERSION` for every engine release.
+## Debugging a deck
+
+Open it in Chrome/Edge with `?dev`: the ☰ Slides navigator lists every problem per slide and step
+(click jumps there), deck-wide problems in a red box, a badge bottom-left, ▦ Components. Console:
+`Deck.state`, `Deck.problems`, `Deck.goTo(id, step)`, `Deck.animations`. `?preview=<index|id>&step=k`
+renders one slide.

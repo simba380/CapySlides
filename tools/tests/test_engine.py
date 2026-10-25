@@ -1007,5 +1007,86 @@ class ComponentsTest(unittest.TestCase):
         self.assertEqual(r["t"][2:], ["Slide 3 – title", "Slide 4 – title", "Slide 5 – title", "End", "Appendix 1 – title"])
 
 
+WALK = """
+  await new Promise(r => setTimeout(r, 500));
+  const total = Deck.slides.reduce((n, s) => n + s.N, 0);
+  let forward = 1, back = 1;
+  while (Deck.next()) forward++;
+  const end = Deck.state;
+  while (Deck.prev()) back++;
+  return { total, forward, back, end, start: Deck.state, last: Deck.slides.length - 1,
+           errors: window.__deckErrors, warnings: Deck.warnings };
+"""
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class RegressionTest(unittest.TestCase):
+    """Bugs found in the final review (each test fails on the old code)."""
+
+    def test_walk_through_template_and_efficientnet(self):
+        cases = [("template-walk", build.build_outputs()["template_presentation.html"].decode("utf-8"), {}, None)]
+        project = build.ROOT / "presentations" / "EfficientNet"
+        folder = browser.FIXTURES_OUT / "efficientnet"
+        shutil.copytree(project / "images", folder / "images", dirs_exist_ok=True)
+        deck = _blocks.replace((project / "EfficientNet_presentation.html").read_text(encoding="utf-8"),
+                               _blocks.DECK_ENGINE, build.deck_engine_block(build.engine_version()))
+        cases.append(("efficientnet-walk", deck,
+                      {"EfficientNet_animations.html": (project / "EfficientNet_animations.html").read_text(encoding="utf-8")},
+                      "efficientnet"))
+        for name, page, files, subdir in cases:
+            with self.subTest(name):
+                r = probe(name, WALK, page=page, files=files, subdir=subdir, budget_ms=20000)
+                self.assertEqual(r["errors"], [])
+                self.assertEqual(r["forward"], r["total"], "every step of every slide is visited going forward")
+                self.assertEqual(r["back"], r["total"], "and going back")
+                self.assertEqual((r["end"]["current"], r["start"]["current"], r["start"]["step"]), (r["last"], 0, 0))
+
+    def test_closed_panels_are_not_focusable_and_open_panels_keep_their_keys(self):
+        r = probe("steps_deck-panelkeys", """
+          const nav = $('nav-overlay'), visibility = () => getComputedStyle(nav).visibility;
+          const o = { closed: visibility() };
+          $('nav-btn').click();
+          o.open = visibility();
+          const before = Deck.state.id;
+          o.notPrevented = key('ArrowDown') && key(' ');      // the panel may scroll / use Space itself
+          o.unchanged = Deck.state.id === before;
+          key('Escape');
+          o.afterEsc = Deck.state.locked;
+          return o;
+        """, query="?dev")
+        self.assertEqual((r["closed"], r["open"]), ("hidden", "visible"))
+        self.assertTrue(r["notPrevented"])
+        self.assertTrue(r["unchanged"])
+        self.assertFalse(r["afterEsc"])
+
+    def test_authoring_example_slide_matches_its_description(self):
+        guide = (build.ROOT / "AUTHORING.md").read_text(encoding="utf-8")
+        example = guide[guide.index("**A complete content slide**"):]
+        example = example[example.index("```html\n") + 8:example.index("\n```", example.index("```html"))]
+        shell = (FIXTURES / "p5_deck.html").read_text(encoding="utf-8")
+        start, end = shell.index('<section data-type="content" id="math">'), shell.index('<section data-type="black">')
+        page = build.build_deck(shell[:start] + example + "\n" + shell[end:], build.engine_version())
+        r = probe("p5_deck-authoring-example", """
+          await new Promise(r => setTimeout(r, 300));
+          return { s: Deck.slides.find(s => s.id === 'results'), w: Deck.warnings };
+        """, page=page)
+        self.assertEqual(r["s"]["N"], 4, "title, figure, red line, conclusion")
+        self.assertEqual([w for w in r["w"] if "results.png" not in w], [])
+
+    def test_math_in_navigator_labels(self):
+        r = probe("p5_deck-navmath", "return document.querySelector('#nav-overlay .deck-row[data-slide=\"2\"] .row-label .katex') !== null;")
+        self.assertTrue(r)
+
+    def test_template_panels_ignore_unknown_and_duplicate_ids(self):
+        r = browser.run(anim_template(), """
+          const wait = ms => new Promise(r => setTimeout(r, ms));
+          applyPreset({ open: ['typo'] }); await wait(100);
+          const typo = Panels.openIds;
+          applyPreset({ open: ['grid', 'grid', 'formula'] }); await wait(100);
+          return { typo, dup: Panels.openIds };
+        """, "template_animations-ids")
+        self.assertEqual(r, {"typo": ["scaling"], "dup": ["grid", "formula"]})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 /* Deck engine — component library (SPEC §14). Source of truth: engine/components.css.
    Building blocks distilled from the EfficientNet deck (original px x 1.125). Every component
-   works with data-step / data-step-class. Snippets: engine/components.html (also shown in the
-   ?dev Slides panel). User CSS (unlayered) always overrides this layer. */
+   works with data-step / data-step-class. Snippets: engine/components.html (shown by the ?dev
+   ▦ Components button and in AUTHORING.md). User CSS (unlayered) always overrides this layer. */
 @layer components {
 
   /* ── Text helpers ──────────────────────────────────────────────────── */

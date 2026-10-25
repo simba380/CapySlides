@@ -23,8 +23,14 @@ import _deckfolder as df  # noqa: E402
 import image_sizes  # noqa: E402
 
 PROBE = """
-  await new Promise(r => setTimeout(r, 6000));   // animation handshakes + missing-file timeouts
-  return { problems: Deck.problems, version: Deck.version,
+  // Wait until every image has loaded or failed and every animation instance has answered the
+  // handshake or been declared missing (at most 30 s), then a short grace for background images.
+  const settled = () => [...document.images].every(img => img.complete)
+    && Deck.animations.every(a => a.instances.every(i => i.ready || i.missing));
+  const t0 = performance.now();
+  while (!settled() && performance.now() - t0 < 30000) await new Promise(r => setTimeout(r, 200));
+  await new Promise(r => setTimeout(r, 500));
+  return { problems: Deck.problems, version: Deck.version, errors: window.__deckErrors || [],
            slides: Deck.slides.map(s => ({ label: s.label, title: s.title, type: s.type })) };
 """
 
@@ -78,6 +84,8 @@ def check_deck(deck: Path, runtime: bool = True) -> Report:
         for p in sorted(result["problems"], key=lambda p: (-1 if p["slide"] is None else p["slide"], p["step"])):
             where = slide_name(report.slides, p["slide"]) + ("" if p["slide"] is None else f", step {p['step']}")
             report.issues.append((where, p["message"]))
+        for message in result.get("errors", []):
+            report.issues.append(("JavaScript", f"uncaught error: {message}"))
     elif runtime:
         report.notes.append("no working Chrome/Edge found: runtime checks (slides, images, animations) skipped")
     return report

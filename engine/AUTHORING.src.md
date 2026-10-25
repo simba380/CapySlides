@@ -103,6 +103,23 @@ Slides after the black slide are the **appendix** ("Appendix 1, 2, …"). Number
 ETH logo and the navigator are automatic. Optional section attributes: `id="…"` (for hooks/links),
 `data-layout="center"` (centred content) or `"full"` (no padding), `data-bg-color="#f5f3ee"`.
 
+**A complete content slide** (title on arrival, figure with click 1, red marker with click 2, the
+unmarked conclusion last):
+
+```html
+<section data-type="content" id="results">
+  <h2 class="slide-title">Results – <span class="title-mark">fewer parameters</span></h2>
+  <div class="figure-wrap" data-step="1">
+    <div class="figure">
+      <img src="images/results.png" width="1600" height="720" alt="Accuracy vs. parameters">
+      <div class="overlay-line" style="top: 20%" data-step="2" data-step-fx="fade"></div>
+    </div>
+  </div>
+  <div class="conclusion-box">Same accuracy with 8× fewer parameters</div>
+</section>
+```
+This slide has four steps: 0 (title), 1 (figure), 2 (red line), 3 (conclusion box).
+
 ---
 
 ## 5. Steps (0-based)
@@ -178,3 +195,26 @@ Step numbers in the snippets are examples.
 - Updating: `python tools/update.py <folder>` replaces only the generated engine blocks (backups
   `*.bak`) and refreshes `AUTHORING.md` / `CLAUDE.md`. Within 1.x updates never change the meaning
   of existing attributes or config; a breaking change would be 2.0 with migration notes here.
+
+---
+
+## 10. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `image "x.png" not found` (white box) | File missing from `images/` or path/name differs. Fix it, run `tools/image_sizes.py`. |
+| `animation "x.html" not found` | File missing, name differs from `DECK.animations`, or its `ANIM-CONTRACT` block was removed. |
+| `… points outside the presentation folder` | A path uses `../`, an absolute path or a URL; copy the file into the folder. |
+| Red formula / `formula error` | KaTeX cannot parse it (message in `check.py`). Literal dollar: `\$`. |
+| Content appears a click too early/late | Steps are 0-based; unmarked content comes last (§5). Check with `?dev` → ☰ Slides. |
+| `has no width/height attributes` | Run `tools/image_sizes.py <deck>`. |
+| `title slide content is ignored` | The cover is built from `DECK`; leave `<section data-type="title">` empty. |
+| Text smaller than expected | The browser is not fullscreen; press F11 (the slide is a fixed 1280×800 canvas). |
+| Anything in the engine block edited by mistake | `tools/update.py <folder>` rewrites the generated blocks; the slides stay untouched. |
+
+## 11. Asking an AI assistant
+
+Give it the project folder (its `CLAUDE.md` points here) and concrete requests, e.g.
+"add a slide with the results table from `notes.md`, highlight our model's rows, reveal the
+conclusion on the last click", then let it run `tools/check.py`. Ask it to reuse the components
+of §7 and to keep all files inside the project folder.
