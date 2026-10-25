@@ -135,8 +135,19 @@
   #deck img { width: auto; height: auto; max-width: 100%; }
 
   /* Temporary stub: animation slides arrive in P4. */
+  /* ── Animations (SPEC §9) ────────────────────────────────────────────── */
   .slide--animation { background: #f5f3ee; }
-  .anim-stub { margin: auto; font-size: var(--fs-sub); color: var(--muted); }
+  .anim-box { position: absolute; inset: 0; }
+  .anim-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
+  .anim-missing { position: absolute; inset: 0; background: center / 100% 100% no-repeat; }
+  .deck-thumb .anim-missing { inset: auto; top: 0; left: 0; transform-origin: 0 0; }
+  /* ▶ button overlay: one persistent instance per animation; closed = invisible but still laid
+     out, so animations keep their size and state. Above slides, below panels and top buttons. */
+  #anim-overlay { position: absolute; inset: 0; z-index: 900; background: #f5f3ee; visibility: hidden; }
+  #anim-overlay.open { visibility: visible; }
+  #anim-overlay .anim-box { visibility: hidden; }
+  #anim-overlay.open .anim-box.is-active { visibility: visible; }
+  .row-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
 
   /* ── Preview mode (?preview=…, thumbnails): final state, no motion ──── */
   html.deck-preview *, html.deck-preview *::before, html.deck-preview *::after { transition: none !important; }

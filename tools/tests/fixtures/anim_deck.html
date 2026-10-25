@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: animations deck</title>
+  <script id="deck-config">
+    const DECK = {
+      title: 'Animations fixture',
+      course: { title: '000-0000-00L Testing', type: 'Seminar', semester: 'FS26' },
+      toc: ['Animations'],
+      date: '01.02.2026',
+      animations: [
+        { id: 'demo',   name: 'Demo',   file: 'demo_animations.html' },
+        { id: 'second', name: 'Second', file: 'second_animations.html' },
+        { id: 'ghost',  name: 'Ghost',  file: 'ghost_animations.html' },     // file does not exist
+        { id: 'legacy', name: 'Legacy', file: 'legacy_animations.html' },    // exists, but no contract
+      ],
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <section data-type="title"></section>
+    <section data-type="toc"></section>
+    <section data-type="content" id="intro">
+      <h2 class="slide-title">Intro</h2>
+    </section>
+    <section data-type="animation" id="anim-demo" data-anim="demo" data-params="phi=3" data-title="Demo at phi 3"></section>
+    <section data-type="animation" id="anim-ghost" data-anim="ghost" data-title="Ghost animation"></section>
+    <section data-type="animation" id="anim-unknown" data-anim="nope" data-title="Unknown id"></section>
+    <section data-type="animation" id="anim-legacy" data-anim="legacy" data-title="Legacy animation"></section>
+    <section data-type="content" id="after">
+      <h2 class="slide-title">After the animations</h2>
+    </section>
+    <section data-type="black"></section>
+  </main>
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

@@ -1,8 +1,8 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
    Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
    §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
-   §10 assets (missing images → placeholders).
-   Later phases plug in here: P4 animations; P5 math escaping + components. */
+   §10 assets (missing images → placeholders), §9 animations.
+   Later phases plug in here: P5 math escaping + components. */
 (() => {
   'use strict';
 
@@ -27,6 +27,9 @@
   ];
   const THUMB_WIDTH = 126;   // navigator thumbnails (original 112px x 1.125)
   const HINT_MS = 4000;      // "← → to navigate" fades after this
+  const ANIM_READY_MS = 1500;   // after an animation iframe's load event, a `ready` must have arrived …
+  const ANIM_TOTAL_MS = 4000;   // … and at the latest this long after its src was set (SPEC §9.5)
+  const QUEUE_STEP_MS = 5000;   // a queued iframe that never fires `load` no longer blocks the queue
 
   const DEFAULTS = {
     title: '',
@@ -42,7 +45,14 @@
   };
 
   let cfg, slides = [], sectionEls = [], viewport, stage, topbar;
-  const state = { current: -1, locked: false, scale: 1 };
+  let anims = [];                        // validated DECK.animations, in their fixed global order
+  const animById = new Map();
+  const state = { current: -1, locked: false, animOpen: null, scale: 1 };
+
+  /** Navigation is paused while a panel (navigator, picker) or an animation overlay is open. */
+  function isBlocked() {
+    return state.locked || state.animOpen !== null;
+  }
 
   // ── Problems / warnings ───────────────────────────────────────────────────
   // Authoring problems never stop the deck. Each one is logged to the console and kept with
@@ -122,6 +132,20 @@
       c.date = 'auto';
     }
     if (!String(c.title).trim()) warn('DECK.title is empty');
+    if (!Array.isArray(c.animations)) {
+      warn('DECK.animations must be an array of { id, name, file } objects');
+      c.animations = [];
+    }
+    c.animations.forEach((a, i) => {
+      if (!a || typeof a !== 'object' || typeof a.id !== 'string' || !a.id || typeof a.file !== 'string' || !a.file) {
+        warn(`DECK.animations[${i}] needs a non-empty id and file`);
+        return;
+      }
+      if (animById.has(a.id)) { warn(`DECK.animations: duplicate id "${a.id}"`); return; }
+      const anim = { id: a.id, name: typeof a.name === 'string' && a.name ? a.name : a.id, file: a.file };
+      animById.set(anim.id, anim);
+      anims.push(anim);
+    });
     return c;
   }
 
@@ -268,6 +292,7 @@
   function wrapContent(slide) {
     const { el } = slide;
     const content = h('div', 'slide-content');
+    if (slide.type === 'animation') content.classList.add('layout-full');   // the iframe fills the slide
     const layout = el.dataset.layout;
     if (layout) {
       if (LAYOUTS.includes(layout)) content.classList.add('layout-' + layout);
@@ -353,9 +378,14 @@
     }
   }
 
-  function renderAnimationStub(slide) {
-    const anim = slide.el.dataset.anim || '?';
-    slide.el.appendChild(h('div', 'anim-stub', `Animation slide "${anim}" — rendered from P4 on`));
+  function renderAnimationSlide(slide) {
+    const id = slide.el.dataset.anim;
+    const anim = animById.get(id);
+    const where = `slide ${slide.index + 1} ("${slide.id}")`;
+    if (!id) warn(`${where}: animation slide without data-anim (use an id from DECK.animations)`, { slide: slide.index });
+    else if (!anim) warn(`${where}: unknown animation id "${id}" (not in DECK.animations)`, { slide: slide.index });
+    const rec = createAnimFrame(anim, 'slide', { params: slide.el.dataset.params, slide: slide.index, missingName: id || '?' });
+    slide.el.appendChild(rec.box);
   }
 
   function slideTitle(slide) {
@@ -431,7 +461,7 @@
       const empty = el.children.length === 0;
       if (type === 'title') renderCover(slide);
       if (type === 'toc' && empty) renderToc(slide);
-      if (type === 'animation') renderAnimationStub(slide);
+      if (type === 'animation') renderAnimationSlide(slide);
       if (type === 'black' && !empty) warn(`slide ${slide.index + 1}: the black slide should be empty; its content is hidden`, { slide: slide.index });
       if (FRAMED_TYPES.includes(type)) wrapContent(slide);
       slide.title = slideTitle(slide);
@@ -600,6 +630,8 @@
     }
     const previous = slides[state.current];
     if (previous && previous !== slide) {
+      // Keys forwarded from a focused animation iframe moved us on: give focus back to the deck.
+      if (previous.el.contains(document.activeElement)) releaseFocus();
       previous.el.classList.remove('is-active');
       previous.el.inert = true;
     }
@@ -612,7 +644,7 @@
   }
 
   function next() {
-    if (state.locked) return false;
+    if (isBlocked()) return false;
     const slide = slides[state.current];
     if (slide.step < slide.N) { slide.step++; renderSlide(slide); return true; }
     if (state.current < slides.length - 1) { show(state.current + 1, 'forward'); return true; }
@@ -620,7 +652,7 @@
   }
 
   function prev() {
-    if (state.locked) return false;
+    if (isBlocked()) return false;
     const slide = slides[state.current];
     if (slide.step > 1) { slide.step--; renderSlide(slide); return true; }
     if (state.current > 0) { show(state.current - 1, 'back'); return true; }
@@ -684,7 +716,13 @@
   function closeOverlay(o) {
     o.overlay.classList.remove('open');
     if (openOverlay === o) { openOverlay = null; state.locked = false; }
+    releaseFocus();
+  }
+
+  /** Move keyboard focus back to the deck (out of buttons and animation iframes). */
+  function releaseFocus() {
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    window.focus();
   }
 
   function toggleOverlay(o) {
@@ -709,18 +747,37 @@
     return location.href.split(/[?#]/)[0] + '?preview=' + index;
   }
 
-  function pumpThumbs() {
-    if (thumbLoading) return;
-    const frame = thumbQueue.shift();
-    if (!frame) return;
-    thumbLoading = true;
-    const done = () => { thumbLoading = false; pumpThumbs(); };
-    frame.addEventListener('load', done, { once: true });
-    frame.src = frame.dataset.src;
+  /** Queue an iframe; queued frames load one after another (SPEC §11). */
+  function enqueueFrame(frame, url, onStart) {
+    frame.dataset.src = url;
+    thumbQueue.push({ frame, onStart });
+    pumpThumbs();
   }
 
-  function thumbnail(index) {
-    if (thumbCache.has(index)) return thumbCache.get(index);
+  function pumpThumbs() {
+    if (thumbLoading) return;
+    const item = thumbQueue.shift();
+    if (!item) return;
+    thumbLoading = true;
+    let finished = false;
+    const done = () => { if (finished) return; finished = true; thumbLoading = false; pumpThumbs(); };
+    item.frame.addEventListener('load', done, { once: true });
+    setTimeout(done, QUEUE_STEP_MS);
+    item.frame.src = item.frame.dataset.src;
+    if (item.onStart) item.onStart();
+  }
+
+  /** Start a queued frame right away (e.g. an animation opened before its turn came). */
+  function startNow(frame) {
+    const i = thumbQueue.findIndex(item => item.frame === frame);
+    if (i < 0) return;
+    const [item] = thumbQueue.splice(i, 1);
+    item.frame.src = item.frame.dataset.src;
+    if (item.onStart) item.onStart();
+  }
+
+  function thumbnail(index, cacheKey = index) {
+    if (thumbCache.has(cacheKey)) return thumbCache.get(cacheKey);
     const { width: W, height: H } = cfg.canvas;
     const box = h('div', 'deck-thumb');
     box.style.width = THUMB_WIDTH + 'px';
@@ -731,17 +788,179 @@
     frame.style.width = W + 'px';
     frame.style.height = H + 'px';
     frame.style.transform = `scale(${THUMB_WIDTH / W})`;
-    frame.dataset.src = previewUrl(index);
     box.appendChild(frame);
-    thumbCache.set(index, box);
-    thumbQueue.push(frame);
-    pumpThumbs();
+    thumbCache.set(cacheKey, box);
+    enqueueFrame(frame, previewUrl(index));
     return box;
   }
 
   function slideNumberText(slide) {
     if (slide.type === 'black') return '–';
     return slide.zone === 'appendix' ? slide.label : `Slide ${slide.label}`;
+  }
+
+  // ── Animations (SPEC §9) ──────────────────────────────────────────────────
+  // Every animation iframe (on a slide, behind the ▶ button, or as picker thumbnail) is an
+  // independent instance. An instance counts as present only after the animation's contract
+  // snippet answered with `ready`; otherwise it is replaced by the placeholder (SPEC §9.5, §10.4).
+
+  const animFrames = [];               // { anim, kind: 'slide'|'overlay'|'thumb', frame, box, slide, ready, missing }
+  const overlayInstances = new Map();  // anim id → instance shown by the ▶ button / picker
+  let animOverlay = null, animButton = null, picker = null;
+  const pickerRows = [];
+
+  function animUrl(anim, params, thumb) {
+    const extra = String(params || '').replace(/^[?&]+/, '');
+    return `${anim.file}?deck-embed=1${thumb ? '&deck-thumb=1' : ''}${extra ? '&' + extra : ''}`;
+  }
+
+  function postToFrame(frame, message) {
+    if (frame.contentWindow) frame.contentWindow.postMessage({ ns: 'deck', v: 1, ...message }, '*');
+  }
+
+  /** opts: { params, slide, queue, missingName, thumb } */
+  function createAnimFrame(anim, kind, opts = {}) {
+    const box = h('div', `anim-box anim-box--${kind}`);
+    const frame = document.createElement('iframe');
+    frame.className = 'anim-frame';
+    frame.setAttribute('allow', 'fullscreen');
+    if (kind === 'thumb') { frame.tabIndex = -1; frame.setAttribute('aria-hidden', 'true'); }
+    box.appendChild(frame);
+    const rec = { anim, kind, frame, box, slide: opts.slide ?? null, ready: false, missing: false,
+                  missingName: opts.missingName };
+    animFrames.push(rec);
+    if (!anim) { markAnimMissing(rec); return rec; }
+
+    const checkLater = ms => setTimeout(() => { if (!rec.ready) markAnimMissing(rec); }, ms);
+    frame.addEventListener('load', () => {
+      if (rec.ready || rec.missing) return;
+      postToFrame(frame, { type: 'ping' });    // race-free backup for an early `ready`
+      checkLater(ANIM_READY_MS);
+    });
+    const url = animUrl(anim, opts.params, kind === 'thumb');
+    if (opts.queue) enqueueFrame(frame, url, () => checkLater(ANIM_TOTAL_MS));
+    else { frame.src = url; checkLater(ANIM_TOTAL_MS); }
+    return rec;
+  }
+
+  function markAnimMissing(rec) {
+    if (rec.missing || rec.ready) return;
+    rec.missing = true;
+    const file = rec.anim ? rec.anim.file : rec.missingName;
+    const placeholder = h('div', 'anim-missing');
+    placeholder.style.cssText = rec.frame.style.cssText;   // thumbnails keep their scaled frame geometry
+    placeholder.style.backgroundImage = `url("${placeholderSvg('animation', file, cfg.canvas.width, cfg.canvas.height)}")`;
+    placeholder.setAttribute('data-asset-missing', file);
+    rec.frame.replaceWith(placeholder);
+    rec.placeholder = placeholder;
+    if (!rec.anim) return;   // unknown id: already reported for its slide
+    const detail = `animation "${fileName(file)}" not found (DECK.animations "${rec.anim.id}" → ${file})`;
+    if (rec.kind === 'slide') warn(detail, { slide: rec.slide });
+    else if (rec.kind === 'overlay') warn(detail);
+  }
+
+  function onAnimMessage(e) {
+    const rec = animFrames.find(r => !r.missing && r.frame.contentWindow === e.source);
+    if (!rec) return;
+    const data = e.data;
+    if (!data || typeof data !== 'object') return;
+    const legacyKey = data.ns === undefined && data.type === 'keydown' && typeof data.key === 'string';
+    if (data.ns !== 'deck' && !legacyKey) return;
+    if (data.type === 'ready') { rec.ready = true; return; }
+    if (data.type !== 'key' && !legacyKey) return;
+    // Only the animation on the current slide navigates; overlay and thumbnail instances never do.
+    if (rec.kind !== 'slide' || rec.slide !== state.current || isBlocked()) return;
+    if (FORWARD_KEYS.has(data.key)) next();
+    else if (BACK_KEYS.has(data.key)) prev();
+  }
+
+  function buildAnimations() {
+    if (!anims.length) return;
+    animOverlay = h('div');
+    animOverlay.id = 'anim-overlay';
+    stage.appendChild(animOverlay);
+    for (const anim of anims) {   // loaded at startup, one after another (decision R8-3)
+      const rec = createAnimFrame(anim, 'overlay', { queue: true });
+      animOverlay.appendChild(rec.box);
+      overlayInstances.set(anim.id, rec);
+    }
+    animButton = h('button', 'top-btn');
+    animButton.id = 'anim-btn';
+    animButton.type = 'button';
+    animButton.addEventListener('click', () => {
+      if (anims.length === 1) { if (state.animOpen) closeAnimation(); else openAnimation(anims[0].id); }
+      else toggleOverlay(picker);
+    });
+    topbar.prepend(animButton);   // [▶ Animation] [☰ Slides]
+    if (anims.length > 1) buildPicker();
+    updateAnimButton();
+  }
+
+  function buildPicker() {
+    picker = createOverlay('anim-picker', 'Animations', () => refreshPicker());
+    const presentation = h('div', 'deck-row');
+    presentation.dataset.anim = '';
+    const info = h('div', 'row-info');
+    info.append(h('div', 'row-num', 'Presentation'), h('div', 'row-label', slides[0] ? slides[0].title : ''));
+    presentation.append(slides.length ? thumbnail(0, 'picker') : h('div', 'deck-thumb'), info);
+    pickerRows.push(presentation);
+    for (const anim of anims) {
+      const row = h('div', 'deck-row');
+      row.dataset.anim = anim.id;
+      const { width: W, height: H } = cfg.canvas;
+      const thumb = h('div', 'deck-thumb');
+      thumb.style.width = THUMB_WIDTH + 'px';
+      thumb.style.height = (THUMB_WIDTH * H / W) + 'px';
+      const rec = createAnimFrame(anim, 'thumb', { queue: true });
+      Object.assign(rec.frame.style, { width: W + 'px', height: H + 'px', transform: `scale(${THUMB_WIDTH / W})` });
+      thumb.appendChild(rec.box);
+      const rowInfo = h('div', 'row-info');
+      rowInfo.append(h('div', 'row-num', 'Animation'), h('div', 'row-label', anim.name), h('div', 'row-sub', fileName(anim.file)));
+      row.append(thumb, rowInfo);
+      pickerRows.push(row);
+    }
+    for (const row of pickerRows) {
+      row.addEventListener('click', () => {
+        closeOverlay(picker);
+        if (row.dataset.anim) openAnimation(row.dataset.anim); else closeAnimation();
+      });
+      picker.list.appendChild(row);
+    }
+  }
+
+  function refreshPicker() {
+    for (const row of pickerRows) row.classList.toggle('is-current', row.dataset.anim === (state.animOpen || ''));
+  }
+
+  function updateAnimButton() {
+    if (!animButton) return;
+    const open = state.animOpen !== null;
+    animButton.textContent = anims.length === 1
+      ? (open ? '◀ Presentation' : '▶ Animation')
+      : (open ? '⇄ Switch' : '▶ Animations');
+  }
+
+  function openAnimation(id) {
+    const rec = overlayInstances.get(id);
+    if (!rec) { warn(`Deck.openAnimation: no animation "${id}"`); return false; }
+    if (openOverlay) closeOverlay(openOverlay);
+    startNow(rec.frame);
+    for (const other of overlayInstances.values()) other.box.classList.toggle('is-active', other === rec);
+    animOverlay.classList.add('open');
+    state.animOpen = id;
+    updateAnimButton();
+    refreshPicker();
+    return true;
+  }
+
+  function closeAnimation() {
+    if (!animOverlay || state.animOpen === null) return false;
+    animOverlay.classList.remove('open');   // instances stay loaded: their state is kept
+    state.animOpen = null;
+    releaseFocus();
+    updateAnimButton();
+    refreshPicker();
+    return true;
   }
 
   // ── Top bar, ☰ Slides navigator, dev problems (SPEC §12.5, §12.6; R6-1…R6-4) ──
@@ -770,6 +989,7 @@
       row.append(thumbnail(slide.index), info);   // thumbnails load one after another
       row.addEventListener('click', () => {
         closeOverlay(nav);
+        closeAnimation();   // jumping means: back to the presentation (R8-2)
         goTo(slide.index, stepFor(slide.index));
       });
       nav.list.appendChild(row);
@@ -779,7 +999,7 @@
     navButton.id = 'nav-btn';
     navButton.type = 'button';
     navButton.addEventListener('click', () => toggleOverlay(nav));
-    topbar.appendChild(navButton);   // the P4 animation button goes to its left
+    topbar.appendChild(navButton);   // the animation button sits to its left
     refreshDevUi();
   }
 
@@ -953,9 +1173,15 @@
     get state() {
       const s = slides[state.current];
       return { current: state.current, id: s && s.id, step: s && s.step, N: s && s.N,
-               label: s && s.label, locked: state.locked, scale: state.scale };
+               label: s && s.label, locked: state.locked, animOpen: state.animOpen, scale: state.scale };
+    },
+    get animations() {
+      return anims.map(a => ({ ...a, instances: animFrames.filter(r => r.anim === a)
+        .map(r => ({ kind: r.kind, slide: r.slide, ready: r.ready, missing: r.missing })) }));
     },
     next, prev, goTo,
+    openAnimation: id => openAnimation(id),
+    closeAnimation: () => closeAnimation(),
     fit: () => fit(),
   };
 
@@ -975,6 +1201,7 @@
       cfg = readConfig();
       if (!deckEl) throw new Error('no <main id="deck"> element found');
       buildCanvas(deckEl);
+      window.addEventListener('message', onAnimMessage);   // before any animation iframe exists
       if (!PREVIEW) buildTopbar();
       if (DEV) buildBadge();
       parseSlides(deckEl);
@@ -995,6 +1222,7 @@
         document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
         buildNavigator();
+        buildAnimations();
         buildHint();
       }
     } catch (err) {

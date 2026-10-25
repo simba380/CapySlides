@@ -3,44 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Animations</title>
+  <title>Animation template — Simon Meier</title>
 
 <!-- @@ANIM_VENDOR@@ -->
 
+  <!-- ═════ ANIMATION ZONE ═══════════════════════════════════════════════
+       Starter animation for a deck (SPEC §9, §15). Replace the demo below with your own panels.
+       Rules for every animation file:
+         - keep the ANIM-VENDOR block (fonts + KaTeX, offline) and the ANIM-CONTRACT block at the
+           end of <body>: without the contract, a deck treats the file as missing;
+         - read presets from the URL (readURLParams) and/or implement window.applyPreset(cfg),
+           so deck slides can open the animation in a given state via data-params="key=value&…";
+         - navigation keys are forwarded to the deck automatically; Ctrl/Shift + arrows stay here. -->
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
       --bg: #f5f3ee; --paper: #fffef9; --rule: #dedad2;
       --ink: #1a1814; --muted: #7a7570; --accent: #2a4a8c;
+      --dep: #3BB273; --wid: #2E86AB; --res: #E07A5F;
     }
+
     body {
       background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--ink);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden; padding: 16px; gap: 16px;
     }
-    h1 { font-family: 'DM Serif Display', serif; font-size: 1.9rem; text-align: center; }
-    .panel {
-      flex: 1; background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
-      box-shadow: 0 2px 16px rgba(0,0,0,.07); padding: 28px 36px;
-      display: flex; flex-direction: column; gap: 14px;
-    }
-    .mono { font-family: 'DM Mono', monospace; color: var(--accent); }
+
+    header { display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
+    h1 { font-family: 'DM Serif Display', serif; font-size: 1.9rem; text-align: center; flex: 1; }
+    .header-side { flex: 0 0 200px; font-size: .78rem; line-height: 1.5; }
+    .header-side .muted { color: var(--muted); }
+    .header-right { text-align: right; font-size: .7rem; color: var(--muted); }
+
+    .main-row { display: flex; gap: 16px; flex: 1; min-height: 0; }
+
+    .sidebar-col { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+    .scard { background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
+             box-shadow: 0 2px 12px rgba(0,0,0,.06); padding: 12px 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .scard h2 { font-family: 'DM Serif Display', serif; font-size: 1.05rem; }
+    .section-title { display: flex; align-items: center; gap: 8px; font-size: .65rem; font-weight: 500;
+                     text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+    .ctrl-header { display: flex; justify-content: space-between; align-items: baseline; }
+    .ctrl-label { font-size: .67rem; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .ctrl-value { font-family: 'DM Mono', monospace; font-size: .78rem; color: var(--accent); }
+    input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .hint { font-size: .68rem; color: var(--muted); line-height: 1.4; }
+
+    .panel { flex: 1; min-width: 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
+             box-shadow: 0 2px 16px rgba(0,0,0,.07); padding: 28px 36px; display: flex; flex-direction: column; gap: 16px; }
+    .panel-title { font-family: 'DM Serif Display', serif; font-size: 1.4rem; text-align: center; }
+    #viz { flex: 1; min-height: 0; width: 100%; display: block; }
+    #formula { text-align: center; }
+
+    /* Small previews (deck picker thumbnails) get deck-thumb=1: simplify if you like. */
+    body.is-thumb .sidebar-col { display: none; }
   </style>
 </head>
 <body>
-  <h1>Animation template</h1>
+  <header>
+    <div class="header-side">
+      <div><strong>Simon Meier</strong></div>
+      <div class="muted">Course, Semester</div>
+    </div>
+    <h1>Animation template</h1>
+    <div class="header-side header-right">Paper title<br>Authors (Year)</div>
+  </header>
 
-  <!-- TEMPORARY (P0): smoke test for vendored fonts + KaTeX. The real starter animation follows in P4/P6. -->
-  <div class="panel">
-    <p>DM Sans 400 — body text</p>
-    <p style="font-weight:500">DM Sans 500 — medium</p>
-    <p class="mono">DM Mono 500 — φ = 1.0</p>
-    <div id="formula"></div>
+  <div class="main-row">
+    <div class="sidebar-col">
+      <div class="scard">
+        <h2>1. Scaling demo</h2>
+        <div class="section-title">Parameters</div>
+        <div>
+          <div class="ctrl-header">
+            <span class="ctrl-label">Compound φ</span>
+            <span class="ctrl-value" id="phi-val">1</span>
+          </div>
+          <input type="range" id="phi" min="0" max="4" step="1" value="1">
+        </div>
+        <p class="hint">Arrow keys move the presentation; hold Ctrl or Shift to move only the slider.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Depth, width and resolution grow together</div>
+      <svg id="viz" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="formula"></div>
+    </div>
   </div>
 
   <script>
-    katex.render('d = \\alpha^\\phi,\\; w = \\beta^\\phi,\\; r = \\gamma^\\phi',
-                 document.getElementById('formula'), { throwOnError: false, displayMode: true });
+    // ── Demo animation: replace with your own drawing code ───────────────────
+    const ALPHA = 1.2, BETA = 1.1, GAMMA = 1.15;
+    let phi = 1;
+
+    function draw() {
+      const svg = document.getElementById('viz');
+      const depth = Math.round(2 * Math.pow(ALPHA, phi) + phi);   // number of layers
+      const width = 40 * Math.pow(BETA, phi);                      // layer width
+      const res = 70 * Math.pow(GAMMA, phi);                        // input size
+      const gap = 14, total = res + depth * (width + gap);
+      let x = (600 - total) / 2;
+      const parts = [`<rect x="${x}" y="${150 - res / 2}" width="${res}" height="${res}" rx="6" fill="var(--res)" opacity=".85"/>`];
+      x += res + gap;
+      for (let i = 0; i < depth; i++, x += width + gap) {
+        parts.push(`<rect x="${x}" y="${150 - 60}" width="${width}" height="120" rx="6" fill="${i % 2 ? 'var(--wid)' : 'var(--dep)'}" opacity=".85"/>`);
+      }
+      svg.innerHTML = parts.join('');
+      document.getElementById('phi-val').textContent = phi;
+      katex.render(`\\phi = ${phi}:\\quad d = ${ALPHA}^{\\phi},\\; w = ${BETA}^{\\phi},\\; r = ${GAMMA}^{\\phi}`,
+                   document.getElementById('formula'), { throwOnError: false, displayMode: true });
+    }
+
+    document.getElementById('phi').addEventListener('input', e => { phi = Number(e.target.value); draw(); });
+
+    // ── Presets: from the URL (deck slides: data-params="phi=3") or via postMessage ──
+    function applyPreset(cfg) {
+      if (cfg.phi !== undefined) {
+        phi = Math.min(4, Math.max(0, Math.round(Number(cfg.phi)) || 0));
+        document.getElementById('phi').value = phi;
+      }
+      draw();
+    }
+    window.applyPreset = applyPreset;   // the deck contract calls this for { type: 'preset' }
+
+    function readURLParams() {
+      const p = new URLSearchParams(location.search);
+      const cfg = {};
+      if (p.has('phi')) cfg.phi = Number(p.get('phi'));
+      return cfg;
+    }
+
+    if (new URLSearchParams(location.search).has('deck-thumb')) document.body.classList.add('is-thumb');
+    applyPreset(readURLParams());
   </script>
 
 <!-- @@ANIM_CONTRACT@@ -->

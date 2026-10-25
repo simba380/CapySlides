@@ -15,6 +15,7 @@
       course:    { title: '000-0000-00L Testing', type: 'Seminar', semester: 'FS26' },
       toc:       ['Alpha', { text: 'Beta', sub: ['Beta one', 'Beta two'] }, 'Gamma $x^2$'],
       date:      '01.02.2026',
+      animations: [{ id: 'demo', name: 'Demo animation', file: 'demo_animations.html' }],
       hooks: {
         hooked: (step, el, ctx) => {
           (window.hookCalls = window.hookCalls || []).push([step, ctx.first, ctx.N, ctx.preview]);

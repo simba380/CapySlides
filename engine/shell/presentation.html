@@ -18,7 +18,10 @@
       course:    { title: 'Course number and name', type: 'Seminar', semester: 'FS26' },
       cover:     { background: 'images/eth_zurich_aerial.png', boxMaxWidth: '58%' },
       toc:       ['First topic', 'Second topic', 'Third topic'],
-      animations: [],
+      animations: [
+        // One entry per animation file next to this deck; the order is the picker order.
+        // { id: 'main', name: 'My animation', file: 'template_animations.html' },
+      ],
       date:      'auto',
       canvas:    { width: 1280, height: 800 },
       hooks:     {},
@@ -45,6 +48,10 @@
     <section data-type="content">
       <h2 class="slide-title">Slide title</h2>
     </section>
+
+    <!-- An animation as a slide (needs an entry in DECK.animations; data-params preset its state):
+    <section data-type="animation" data-anim="main" data-params="phi=2" data-title="Animation slide title"></section>
+    -->
 
     <!-- End of the talk: everything after the black slide is appendix -->
     <section data-type="black"></section>

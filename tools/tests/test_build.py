@@ -42,9 +42,10 @@ class BuildTest(unittest.TestCase):
                 self.assertLess(html.index(_blocks.begin(name, version)), html.index(_blocks.end(name)))
             self.assertEqual(positions, sorted(positions))
         # vendor block in <head>, contract at the end of <body>
-        self.assertLess(self.anim.index(_blocks.ANIM_VENDOR), self.anim.index("</head>"))
-        self.assertGreater(self.anim.index(_blocks.ANIM_CONTRACT), self.anim.index("<body"))
-        self.assertGreater(self.deck.index(_blocks.DECK_ENGINE), self.deck.index('<main id="deck">'))
+        marker = lambda html, name: html.index(f"<!-- {name}:BEGIN")   # comments may mention block names
+        self.assertLess(marker(self.anim, _blocks.ANIM_VENDOR), self.anim.index("</head>"))
+        self.assertGreater(marker(self.anim, _blocks.ANIM_CONTRACT), self.anim.index("<body"))
+        self.assertGreater(marker(self.deck, _blocks.DECK_ENGINE), self.deck.index('<main id="deck">'))
 
     def test_no_placeholders_left(self):
         for html in (self.deck, self.anim):

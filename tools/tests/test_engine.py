@@ -41,8 +41,16 @@ def fixture(name: str, date: str | None = None, title: str | None = None) -> str
     return build.build_deck(shell, build.engine_version())
 
 
-def probe(name: str, js: str, page: str | None = None, **kw):
-    return browser.run(page or fixture(name.split("-")[0]), HELPERS + js, name, **kw)
+@lru_cache(maxsize=None)
+def anim_template() -> str:
+    """The built template_animations.html (it carries the animation contract)."""
+    return build.build_outputs()["template_animations.html"].decode("utf-8")
+
+
+def probe(name: str, js: str, page: str | None = None, files: dict | None = None, **kw):
+    """Run a fixture; the built animation template sits next to it as demo_animations.html."""
+    files = {"demo_animations.html": anim_template(), **(files or {})}
+    return browser.run(page or fixture(name.split("-")[0]), HELPERS + js, name, files=files, **kw)
 
 
 @unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
@@ -627,6 +635,210 @@ class AssetsTest(unittest.TestCase):
           return [...document.querySelectorAll('#nav-overlay .deck-row[data-slide="2"] .row-problems li')].map(li => li.textContent);
         """, query="?dev")
         self.assertIn('step 3 · image "late.png" not found (images/late.png)', r)
+
+
+LEGACY_ANIMATION = """<!DOCTYPE html><html><body><p>legacy animation without the deck contract</p>
+<script>document.addEventListener('keydown', e => parent.postMessage({ type: 'keydown', key: e.key }, '*'));</script>
+</body></html>"""
+
+
+def anim_files() -> dict:
+    return {"second_animations.html": anim_template(), "legacy_animations.html": LEGACY_ANIMATION}
+
+
+def contract_js() -> str:
+    page = anim_template()
+    start = page.index('<script id="anim-contract-js">') + len('<script id="anim-contract-js">')
+    return page[start:page.index("</script>", start)]
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class AnimationTest(unittest.TestCase):
+
+    WAIT = "await new Promise(r => setTimeout(r, 6000));   // handshakes + missing-file timeouts\n"
+    SEND = """
+      const frameOf = sel => document.querySelector(sel + ' iframe');
+      const send = (frame, data) => window.dispatchEvent(new MessageEvent('message', { data, source: frame.contentWindow }));
+      const fwd = (frame, key) => send(frame, { ns: 'deck', v: 1, type: 'key', key });
+    """
+
+    def run_anim(self, name, js, **kw):
+        return probe(name, self.WAIT + js, page=fixture("anim_deck"), files=anim_files(), budget_ms=15000, **kw)
+
+    def test_animation_slides_handshake_and_placeholders(self):
+        r = self.run_anim("anim_deck-slides", self.SEND + """
+          const label = sel => {
+            const ph = document.querySelector(sel + ' .anim-missing');
+            if (!ph) return null;
+            const m = getComputedStyle(ph).backgroundImage.match(/,(.*)"\\)$/);
+            return decodeURIComponent(m ? m[1] : '').replace(/&quot;/g, '"');
+          };
+          return {
+            src: frameOf('#anim-demo')?.getAttribute('src'),
+            instances: Object.fromEntries(Deck.animations.map(a => [a.id, a.instances])),
+            ghost: label('#anim-ghost'), unknown: label('#anim-unknown'), legacy: label('#anim-legacy'),
+            slides: Deck.slides.filter(s => s.type === 'animation').map(s => [s.id, s.N, s.label]),
+            footer: !!document.querySelector('#anim-demo .slide-footer'),
+            full: document.querySelector('#anim-demo .slide-content').classList.contains('layout-full'),
+            problems: Deck.problems,
+          };
+        """)
+        self.assertEqual(r["src"], "demo_animations.html?deck-embed=1&phi=3")
+        inst = r["instances"]
+        self.assertEqual([(i["kind"], i["ready"], i["missing"]) for i in inst["demo"]],
+                         [("slide", True, False), ("overlay", True, False), ("thumb", True, False)])
+        self.assertTrue(all(i["ready"] for i in inst["second"]))
+        self.assertTrue(all(i["missing"] and not i["ready"] for i in inst["ghost"]))
+        self.assertTrue(all(i["missing"] for i in inst["legacy"]), "no contract = treated as missing")
+        self.assertIn('animation "ghost_animations.html" not found', r["ghost"])
+        self.assertIn('animation "nope" not found', r["unknown"])
+        self.assertIn('animation "legacy_animations.html" not found', r["legacy"])
+        self.assertEqual(r["slides"], [["anim-demo", 1, "4"], ["anim-ghost", 1, "5"],
+                                       ["anim-unknown", 1, "6"], ["anim-legacy", 1, "7"]])
+        self.assertTrue(r["footer"] and r["full"])
+        msgs = {(p["message"], p["slide"]) for p in r["problems"]}
+        ghost = 'animation "ghost_animations.html" not found (DECK.animations "ghost" → ghost_animations.html)'
+        self.assertIn((ghost, 4), msgs)        # the slide instance
+        self.assertIn((ghost, None), msgs)     # the ▶ button instance: deck-wide
+        self.assertIn(('slide 6 ("anim-unknown"): unknown animation id "nope" (not in DECK.animations)', 5), msgs)
+        self.assertTrue(any(m.startswith('animation "legacy_animations.html" not found') for m, _ in msgs))
+
+    def test_keys_forwarded_from_the_current_animation_slide(self):
+        r = self.run_anim("anim_deck-keys", self.SEND + """
+          const o = {};
+          Deck.goTo('anim-demo');
+          send(frameOf('#anim-demo'), { ns: 'other', type: 'key', key: 'ArrowRight' });
+          o.foreignNsIgnored = Deck.state.id;
+          fwd(frameOf('#anim-demo'), 'ArrowRight');
+          o.forward = Deck.state.id;
+          Deck.goTo('anim-demo');
+          fwd(frameOf('#anim-demo'), 'ArrowLeft');
+          o.back = Deck.state.id;
+          Deck.goTo('anim-demo');
+          send(frameOf('#anim-demo'), { type: 'keydown', key: 'PageDown' });   // legacy message format
+          o.legacy = Deck.state.id;
+          Deck.goTo('intro');
+          fwd(frameOf('#anim-demo'), 'ArrowRight');
+          o.notCurrent = Deck.state.id;
+          fwd(document.querySelector('#anim-overlay iframe'), 'ArrowRight');
+          o.overlayIgnored = Deck.state.id;
+          return o;
+        """)
+        self.assertEqual(r["foreignNsIgnored"], "anim-demo")
+        self.assertEqual(r["forward"], "anim-ghost")
+        self.assertEqual(r["back"], "intro")
+        self.assertEqual(r["legacy"], "anim-ghost")
+        self.assertEqual(r["notCurrent"], "intro")
+        self.assertEqual(r["overlayIgnored"], "intro")
+
+    def test_picker_overlay_instances_and_navigation_lock(self):
+        r = self.run_anim("anim_deck-picker", self.SEND + """
+          const o = {}, btn = $('anim-btn'), open = () => $('anim-overlay').classList.contains('open');
+          o.order = [...$('deck-topbar').children].map(b => b.id);
+          o.label0 = btn.textContent;
+          btn.click();
+          o.pickerOpen = $('anim-picker').classList.contains('open');
+          o.rows = [...document.querySelectorAll('#anim-picker .deck-row')].map(row => [
+            row.dataset.anim, row.querySelector('.row-label').textContent,
+            !!row.querySelector('.anim-missing'), row.classList.contains('is-current')]);
+          document.querySelector('#anim-picker .deck-row[data-anim="demo"]').click();
+          o.afterPick = { open: open(), anim: Deck.state.animOpen, label: btn.textContent,
+                          picker: $('anim-picker').classList.contains('open') };
+          const demoFrame = document.querySelector('#anim-overlay .anim-box.is-active iframe');
+          demoFrame.dataset.marker = 'kept';
+          const before = Deck.state.id;
+          key('ArrowRight'); fwd(demoFrame, 'ArrowRight'); key('Escape');
+          o.blocked = Deck.state.id === before && open();
+          btn.click();
+          o.currentRow = document.querySelector('#anim-picker .deck-row.is-current')?.dataset.anim;
+          document.querySelector('#anim-picker .deck-row[data-anim=""]').click();
+          o.back = { open: open(), anim: Deck.state.animOpen, label: btn.textContent };
+          key('ArrowRight');
+          o.navigatesAgain = Deck.state.id !== before;
+          Deck.openAnimation('demo');
+          o.kept = document.querySelector('#anim-overlay .anim-box.is-active iframe')?.dataset.marker;
+          Deck.openAnimation('second');
+          $('nav-btn').click();
+          document.querySelector('#nav-overlay .deck-row[data-slide="7"]').click();
+          o.jump = { open: open(), anim: Deck.state.animOpen, id: Deck.state.id };
+          return o;
+        """)
+        self.assertEqual(r["order"], ["anim-btn", "nav-btn"])
+        self.assertEqual(r["label0"], "▶ Animations")
+        self.assertTrue(r["pickerOpen"])
+        self.assertEqual(r["rows"], [
+            ["", "Animations fixture", False, True],     # Presentation first, current
+            ["demo", "Demo", False, False],
+            ["second", "Second", False, False],
+            ["ghost", "Ghost", True, False],
+            ["legacy", "Legacy", True, False],
+        ])
+        self.assertEqual(r["afterPick"], {"open": True, "anim": "demo", "label": "⇄ Switch", "picker": False})
+        self.assertTrue(r["blocked"], "keys, forwarded keys and Esc do not touch an open animation")
+        self.assertEqual(r["currentRow"], "demo")
+        self.assertEqual(r["back"], {"open": False, "anim": None, "label": "▶ Animations"})
+        self.assertTrue(r["navigatesAgain"])
+        self.assertEqual(r["kept"], "kept", "the overlay instance (and its state) persists")
+        self.assertEqual(r["jump"], {"open": False, "anim": None, "id": "after"})
+
+    def test_single_and_no_animation_button(self):
+        r = probe("steps_deck-anim-single", """
+          await new Promise(r => setTimeout(r, 2500));
+          const btn = $('anim-btn'), o = { order: [...$('deck-topbar').children].map(b => b.id) };
+          o.labels = [btn.textContent];
+          btn.click(); o.labels.push(btn.textContent); o.open = Deck.state.animOpen;
+          btn.click(); o.labels.push(btn.textContent); o.closed = Deck.state.animOpen;
+          o.picker = !!$('anim-picker');
+          return o;
+        """, budget_ms=8000)
+        self.assertEqual(r["order"], ["anim-btn", "nav-btn"])
+        self.assertEqual(r["labels"], ["▶ Animation", "◀ Presentation", "▶ Animation"])
+        self.assertEqual((r["open"], r["closed"], r["picker"]), ("demo", None, False))
+        r = probe("assets_deck-noanim", "return { btn: !!$('anim-btn'), overlay: !!$('anim-overlay') };")
+        self.assertEqual(r, {"btn": False, "overlay": False})
+
+    def test_contract_snippet(self):
+        js = """
+          const frame = document.createElement('iframe');
+          const got = [];
+          addEventListener('message', e => { if (e.source === frame.contentWindow) got.push(e.data); });
+          frame.srcdoc = '<!doctype html><body><input id="t" type="text"><input id="r" type="range">' +
+            '<script>window.applyPreset = c => parent.postMessage({ presetSeen: c }, "*");<\\/script>' +
+            '<script>' + CONTRACT + '<\\/script></body>';
+          document.body.appendChild(frame);
+          await new Promise(r => frame.addEventListener('load', r, { once: true }));
+          await new Promise(r => setTimeout(r, 50));
+          const win = frame.contentWindow, doc = frame.contentDocument;
+          const press = (target, key, opts = {}) =>
+            target.dispatchEvent(new win.KeyboardEvent('keydown', { key, bubbles: true, ...opts }));
+          press(doc.body, 'ArrowRight');
+          press(doc.body, 'ArrowRight', { ctrlKey: true });
+          press(doc.body, 'ArrowLeft', { shiftKey: true });
+          press(doc.body, 'End', { ctrlKey: true });
+          press(doc.getElementById('t'), ' ');
+          press(doc.getElementById('r'), 'ArrowLeft');
+          press(doc.body, 'x');
+          win.postMessage({ ns: 'deck', v: 1, type: 'ping' }, '*');
+          win.postMessage({ ns: 'deck', v: 1, type: 'preset', preset: { phi: 2 } }, '*');
+          await new Promise(r => setTimeout(r, 100));
+          return { got, embedded: win.DeckAnim.embedded };
+        """.replace("CONTRACT", __import__("json").dumps(contract_js()))
+        r = probe("assets_deck-contract", js)
+        got = r["got"]
+        self.assertTrue(r["embedded"])
+        self.assertEqual(got[0]["type"], "ready")
+        keys = [m["key"] for m in got if m.get("type") == "key"]
+        self.assertEqual(keys, ["ArrowRight", "End", "ArrowLeft"])   # Ctrl/Shift+arrows stay; text input ignored
+        self.assertTrue(all(m.get("ns") == "deck" and m.get("v") == 1 for m in got if "type" in m))
+        self.assertEqual([m["type"] for m in got if m.get("type") == "ready"], ["ready", "ready"])   # load + ping
+        self.assertIn({"presetSeen": {"phi": 2}}, got)
+
+    def test_template_animation_standalone(self):
+        r = browser.run(anim_template(), """
+          return { embedded: DeckAnim.embedded, katex: document.querySelectorAll('#formula .katex').length,
+                   bars: document.querySelectorAll('#viz rect').length, phi: document.getElementById('phi-val').textContent };
+        """, "template_animations-standalone", query="?phi=3")
+        self.assertEqual(r, {"embedded": False, "katex": 1, "bars": 1 + 6, "phi": "3"})   # input + round(2*1.2^3 + 3) layers
 
 
 if __name__ == "__main__":

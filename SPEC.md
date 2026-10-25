@@ -304,7 +304,7 @@ Called with the slide's `id` after every render of that slide (arrival, step cha
 ## 9. Animations
 
 ### 9.1 Registry
-`DECK.animations` is the **single, ordered list** of animations: `{ id, name, file }`. Its order is the fixed global order used everywhere (picker, warnings).
+`DECK.animations` is the **single, ordered list** of animations: `{ id, name, file }` (`name` defaults to `id`). Its order is the fixed global order used everywhere (picker, warnings). Entries without `id`/`file` and duplicate ids are deck warnings. **Implemented (P4).**
 
 ### 9.2 The animation button
 Placed directly left of `☰ Slides`, same style. Visibility depends on the number of registered animations, **not** on whether the files exist:
@@ -319,7 +319,9 @@ Placed directly left of `☰ Slides`, same style. Visibility depends on the numb
 - Same overlay/panel design as the slides navigator, heading "Animations".
 - Entries in fixed order: **1. Presentation** (thumbnail = title‑slide preview), then **every animation in `DECK.animations` order** (thumbnail = live iframe of the animation file + its `name`).
 - The entry for what is currently shown (presentation or animation X) is highlighted.
-- Choosing an animation shows its overlay instance (one persistent instance per animation, created on first use, so state survives switching). Choosing *Presentation* closes any overlay.
+- Choosing an animation shows its overlay instance (one persistent instance per animation, so state survives switching). Choosing *Presentation* closes any overlay.
+- **Loading (decision R8‑3):** every overlay instance and every picker thumbnail is loaded at **startup**, one after another in the background (same queue as the navigator thumbnails, before them), so the button opens instantly and missing files are reported in `?dev` right away. A closed overlay stays laid out (invisible), so animations keep their size and state.
+- While an animation is open, deck navigation is paused (keys and forwarded keys are ignored; Esc does not close it). **Jumping to a slide via ☰ Slides closes the animation** and shows that slide (decision R8‑2).
 - Missing animation files show their placeholder as thumbnail and as overlay (§10).
 
 ### 9.4 Animation slides
@@ -330,7 +332,8 @@ Placed directly left of `☰ Slides`, same style. Visibility depends on the numb
 ```
 - Renders an iframe `file?deck-embed=1&<params>` filling the canvas, with the footer on top (as original slides 4, 9, 11, 13, 14). Background `#f5f3ee` unless `data-bg-color` is set.
 - Every animation slide has **its own independent instance** (state preserved when navigating away and back), separate from the overlay instance(s).
-- Animation slides have one step; arrow keys move to the next/previous slide.
+- Animation slides have one step; arrow keys move to the next/previous slide. Only the instance on the **current** slide may navigate; overlay and thumbnail instances never do. Leaving the slide moves keyboard focus back to the deck.
+- An unknown `data-anim` id is a warning for that slide and shows `animation "<id>" not found`.
 - `data-title` is required (navigator label; not displayed on the slide).
 
 ### 9.5 Animation contract (protocol v1)
@@ -342,11 +345,12 @@ All messages are objects `{ ns: 'deck', v: 1, type, … }` sent with `postMessag
 |---|---|---|---|
 | anim → deck | `ready` | `{ name? }` | on `DOMContentLoaded`, and in reply to `ping` |
 | deck → anim | `ping` | – | after iframe `load`, as a race-free backup |
-| anim → deck | `key` | `{ key }` | navigation keys (→ ← Space PageUp PageDown Home End) pressed inside the animation |
+| anim → deck | `key` | `{ key }` | navigation keys (→ ← ↑ ↓ Space PageUp PageDown Home End) pressed inside the animation — **also while a slider has focus** (as in the original, decision R8‑1). **Ctrl/Shift + arrow keys are not forwarded**, so they steer only the animation. Keys typed into text fields are never forwarded. |
 | deck → anim | `preset` | `{ preset: {...} }` | optional runtime preset (animation calls `window.applyPreset(preset)` if defined) |
 
 - URL parameters: the deck passes `deck-embed=1` (and `deck-thumb=1` for picker thumbnails) plus the slide's `data-params`. Interpreting params is the animation's job (the EfficientNet `readURLParams`/`applyPreset` pattern is the recommended model and lives in the template).
-- **Missing detection:** if no `ready` arrives within **1500 ms after the iframe's `load` event** (or 4000 ms total), the iframe is replaced by the animation placeholder.
+- **Missing detection:** if no `ready` arrives within **1500 ms after the iframe's `load` event** (or 4000 ms after its `src` was set), the iframe is replaced by the animation placeholder. Missing slide instances are warnings for their slide, a missing overlay instance is a deck‑wide warning (both visible in the `?dev` navigator).
+- The contract also exposes `window.DeckAnim = { version, protocol, embedded, thumbnail, params }` to the animation's own code.
 - Legacy compatibility: the deck also accepts the original `{type:'keydown', key}` message. The original `{type:'applyPreset'}` is not needed. An animation **without** the snippet is treated as missing (decision R1‑4). Porting the EfficientNet animation means adding the ~15‑line snippet.
 
 ---
@@ -486,6 +490,7 @@ All components live in `@layer components`, use the design tokens, and work with
 - Stand‑alone page with the **contract snippet** (§9.5), its own vendored fonts/KaTeX (offline), the preset pattern (`readURLParams()` + `applyPreset(cfg)`), and one small demo animation that shows how panels/presets work.
 - Look: **EfficientNet animation style** (DM Sans / DM Serif Display / DM Mono, beige `#f5f3ee` background, paper panels, sidebar cards), with those fonts vendored inline (decision R2‑3).
 - Works on its own (opened directly) and embedded (`deck-embed=1`).
+- **Implemented (P4):** the file has an *ANIMATION ZONE* comment with the rules, a header (presenter/course, title, paper), a sidebar card with a φ slider, a panel with an SVG demo and a KaTeX formula, `readURLParams()` + `window.applyPreset(cfg)` (e.g. `data-params="phi=3"`), and `body.is-thumb` for picker thumbnails. The deck template contains commented examples for `DECK.animations` and an animation slide.
 
 ---
 
@@ -540,7 +545,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 | **P1 Core engine** ✅ done | Canvas scaling + letterbox, slide parsing, content frame, footer/numbering/date, crossfade, keyboard, **step engine + step memory**, hooks, warnings badge. | A test deck with 5 stepped content slides behaves per §8.3/§8.4; numbers/dates correct; resizing keeps layout identical. |
 | **P2 Special slides + navigator** ✅ done | Title slide (measured shrink‑to‑fit box), ☰ Slides button + navigator with live thumbnails, dev problems inside the navigator, hint. Earlier: TOC, black slide, appendix numbering, top‑button row, overlay component, preview mode. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
 | **P3 Assets** ✅ done | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
-| **P4 Animations** | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
+| **P4 Animations** ✅ done | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
 | **P5 Look & components** | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
 | **P6 Template + tooling + docs** | `template_presentation.html` (title, TOC, **3 empty content slides**, black slide, 1 appendix example), `template_animations.html`, `tools/build/update/new`, `AUTHORING.md`, `CLAUDE.md`. | `tools/new` → working deck in < 1 min; `tools/update` upgrades a deck without touching the user zone. |
 | **P7 Validation port** | Port the EfficientNet deck + animation to the template as `examples/EfficientNet/`. | All 20 original slides reproduced with no per‑slide JS except the timeline hook. |
@@ -588,6 +593,10 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R7‑2 | Placeholder label scales with the box. | Round 7 |
 | R7‑3 | Natural image sizes are remembered in `localStorage` per deck file and used for missing images without size attributes (a page cannot write into its own .html; the permanent fix is the P6 tool that writes the attributes). | Round 7 |
 | D‑11 | Missing images keep their `<img>` element (src swapped for an SVG placeholder) instead of being replaced by a `<div>`, so CSS and step attributes keep applying. `#deck img { width:auto; height:auto; max-width:100% }`. | P3 |
+| R8‑1 | Navigation keys inside an animation are always forwarded (also from a focused slider); Ctrl/Shift + arrows stay in the animation. | Round 8 |
+| R8‑2 | Jumping to a slide via ☰ Slides while an animation is open closes the animation. | Round 8 |
+| R8‑3 | Overlay instances and picker thumbnails of all animations load at startup (background queue). | Round 8 |
+| D‑12 | The test harness smoke-tests each candidate browser (Edge, Chrome, …) and uses the first that really renders headless; each browser gets its own profile folder (profiles are not shareable). | P4 |
 | D‑12 | `tools/image_sizes.py` writes the natural image size into each `<img>` (`width`/`height`) from the image files' headers (stdlib only, format by content); `--check` for CI/AI agents. This is the permanent counterpart of the per‑browser remembered sizes (R7‑3). | P3 |
 | D‑5 | Vendor sources: jsDelivr (`katex`, `@fontsource(-variable)/*` 5.3.0), subsets latin, latin‑ext, greek(+ext); Inter as variable font (100–900). | P0 |
 | D‑6 | Engine version stays 0.x during P0–P5 and becomes 1.0.0 at the end of P6. | P0 |
