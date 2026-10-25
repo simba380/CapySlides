@@ -218,7 +218,7 @@ const DECK = {
 };
 ```
 
-Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, etc.) are logged with `console.warn` **and** shown in a small dismissible red "deck warnings" badge in the bottom‑left corner, so mistakes are visible during rehearsal. Preview mode never shows the badge.
+Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, invalid step attributes, formula errors, etc.) are always logged with `console.warn` and collected in `Deck.warnings`. The red "deck warnings" badge (bottom‑left, expandable list, dismissible) is shown **only when the deck is opened with `?dev`** in the URL (decision R4‑1); in dev mode a green "✓ no deck warnings" badge confirms a clean deck. The live talk and preview mode never show it.
 
 ---
 
@@ -278,8 +278,8 @@ State: `current` slide index, `steps[i]` (current step of slide *i*), `visited[i
 
 | Input | Behaviour |
 |---|---|
-| forward | if `steps[cur] < N` → `steps[cur]++`; else go to slide `cur+1` (if any) |
-| back | if `steps[cur] > 1` → `steps[cur]--`; else go to slide `cur-1` (if any) |
+| forward (→ ↓ Space PageDown End) | if `steps[cur] < N` → `steps[cur]++`; else go to slide `cur+1` (if any) |
+| back (← ↑ PageUp Home) | if `steps[cur] > 1` → `steps[cur]--`; else go to slide `cur-1` (if any) |
 | enter slide *i* (forward / back / navigator jump) | if `visited[i]` → **restore `steps[i]`**; else step 1 (forward, jump) or N (back); mark visited |
 | Esc | close navigator or picker (never closes an animation overlay; animations may use Esc) |
 
@@ -393,13 +393,13 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 - No footer, no slide title, no default padding. The top buttons are present.
 
 ### 12.2 Table of contents slide
-Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level) in `--fs-body` / `--fs-sub`. All bullets are visible immediately. (Authors who want stepwise reveal can write the TOC section's content themselves; the engine then leaves it alone.)
+Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level): ETH‑blue numbered circles (as on the original Motivation slide) at `--fs-body`, sub‑items as `–` dashes at `--fs-sub` (decision R4‑3). TOC text may contain `$…$` math. All bullets are visible immediately. (Authors who want stepwise reveal can write the TOC section's content themselves; the engine then leaves it alone.)
 
 ### 12.3 Black slide
 Pure `#000`, letterbox black. Only the top buttons are visible. Navigator label "–" / "End".
 
 ### 12.4 Footer and numbering
-- Bottom‑left: "**ETH** zürich" (13px). Bottom‑right: `DD.MM.YYYY   <number>` (13px, `--muted`).
+- Bottom‑left: "**ETH** zürich" (13px). Bottom‑right: date and number as two spans with a 1em gap, e.g. `01.02.2026   3` (13px, `--muted`; decision R4‑2).
 - Numbering: title = 1, TOC = 2, then sequential through `content`/`animation` slides; black slide none; appendix "Appendix 1…".
 - Date: `DECK.date === 'auto'` → today's local date, refreshed automatically at midnight. Otherwise the fixed string is used.
 
@@ -430,7 +430,7 @@ A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the ca
   All other px values quoted elsewhere in this spec (paddings, button sizes, 28px box offset, etc.) are **original** values and are multiplied by 1.125 in the engine CSS in the same way.
 
   `--eth #1F407A · --ink #1a1a1a · --muted #666 · --title-mark #8B6FC4` + a neutral accent palette `--accent-1…4` (the original `--dep/--wid/--res` green/blue/orange become `--accent-1/2/3`; papers can alias them in user CSS).
-- **Math:** KaTeX 0.16.47 + auto‑render, run once over all slides at start‑up (before thumbnails render). Delimiters: `$…$`, `\(…\)` inline; `$$…$$`, `\[…\]` display (display size `--fs-math`). A literal dollar sign is written `\$` (auto‑render does not support this natively; the engine pre‑processes it in P5). Render errors are shown in red inline (`throwOnError:false`) and also reported as a deck warning.
+- **Math:** KaTeX 0.16.47 + auto‑render, run once over all slides at start‑up (before thumbnails render). Delimiters: `$…$`, `\(…\)` inline; `$$…$$`, `\[…\]` display (display size `--fs-math`). A literal dollar sign is written `\$` (auto‑render does not support this natively; the engine pre‑processes it in P5). Render errors are shown in red inline (`throwOnError:false`); every formula is additionally parsed strictly (via auto-render's `preProcess`), and one that parses in neither inline nor display mode is reported as a deck warning.
 - Fonts and KaTeX (CSS, JS, fonts) are inlined as base64 in the engine block. Licences (OFL / MIT) are kept in `engine/vendor/`.
 
 ---
@@ -515,7 +515,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 | Phase | Content | Acceptance criteria |
 |---|---|---|
 | **P0 Setup** ✅ done | Repo layout (§4.2), `engine/` skeleton, fetch + commit vendor files (KaTeX 0.16.47, Inter, Fira Code, DM fonts) and licences, `tools/build.py`, tests. | Vendor files hash‑locked; build produces both templates (smoke‑test content only); verified offline in headless Edge (no network, all fonts + KaTeX render). |
-| **P1 Core engine** | Canvas scaling + letterbox, slide parsing, content frame, footer/numbering/date, crossfade, keyboard, **step engine + step memory**, hooks, warnings badge. | A test deck with 5 stepped content slides behaves per §8.3/§8.4; numbers/dates correct; resizing keeps layout identical. |
+| **P1 Core engine** ✅ done | Canvas scaling + letterbox, slide parsing, content frame, footer/numbering/date, crossfade, keyboard, **step engine + step memory**, hooks, warnings badge. | A test deck with 5 stepped content slides behaves per §8.3/§8.4; numbers/dates correct; resizing keeps layout identical. |
 | **P2 Special slides + navigator** | Title slide (auto‑sized box), TOC, black slide, appendix numbering, top buttons, navigator with preview mode and staggered thumbnails. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
 | **P3 Assets** | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
 | **P4 Animations** | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
@@ -546,6 +546,13 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R1‑9 | Missing image/animation ⇒ white bordered box at the asset's normal size with `image "…" not found` / `animation "…" not found`. | Round 1 |
 | R3‑1 | KaTeX 0.16.47 (latest 0.16.x patch) instead of 0.16.9. | Round 3 |
 | R3‑2 | Git repository on `main`, no remote; vendor files committed. | Round 3 |
+| R4‑1 | Warnings badge only with `?dev` in the URL; otherwise console only. | Round 4 |
+| R4‑2 | Footer: date and number as separate spans with a ~1em gap. | Round 4 |
+| R4‑3 | TOC uses ETH‑blue numbered circles, sub‑items with dashes. | Round 4 |
+| R4‑4 | ↓/↑ added as forward/back keys; no click navigation, no number+Enter jump. | Round 4 |
+| D‑7 | CSS layers: `reset < vendor < engine < components < user`. The reset sits below vendor so it never overrides KaTeX spacing. Animation files keep vendor CSS unlayered. | P1 |
+| D‑8 | Plain text inside `.slide-content` defaults to `--fs-body` / line‑height 1.5. | P1 |
+| D‑9 | Engine tests run fixture decks in headless Edge/Chrome via `file://` with network disabled (`tools/tests/browser.py`); skipped if no browser is installed. | P1 |
 | D‑5 | Vendor sources: jsDelivr (`katex`, `@fontsource(-variable)/*` 5.3.0), subsets latin, latin‑ext, greek(+ext); Inter as variable font (100–900). | P0 |
 | D‑6 | Engine version stays 0.x during P0–P5 and becomes 1.0.0 at the end of P6. | P0 |
 | R2‑1 | Canvas 1280×800 (16:10); all original px values × 1.125. | Round 2 |

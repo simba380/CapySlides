@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: steps deck</title>
+  <style id="deck-user-styles">
+    .hi   { color: var(--eth); font-weight: 800; }
+    .bold { font-weight: 800; }
+  </style>
+  <script id="deck-config">
+    const DECK = {
+      title:     'Fixture deck for the engine tests',
+      subtitle:  'Engine test (2026)',
+      presenter: 'Test Presenter',
+      course:    { title: '000-0000-00L Testing', type: 'Seminar', semester: 'FS26' },
+      toc:       ['Alpha', { text: 'Beta', sub: ['Beta one', 'Beta two'] }, 'Gamma $x^2$'],
+      date:      '01.02.2026',
+      hooks: {
+        hooked: (step, el, ctx) => {
+          (window.hookCalls = window.hookCalls || []).push([step, ctx.first, ctx.N, ctx.preview]);
+          el.querySelector('#hook-out').textContent = 'hook step ' + step;
+        },
+      },
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <section data-type="title"></section>
+    <section data-type="toc"></section>
+
+    <section data-type="content" id="basic">
+      <h2 class="slide-title">Basic steps</h2>
+      <p id="b1">Always visible (step 1)</p>
+      <p id="b2" data-step="2">From step 2</p>
+      <p id="b3" data-step="3">From step 3</p>
+    </section>
+
+    <section data-type="content" id="ranges">
+      <h2 class="slide-title">Ranges and effects</h2>
+      <p id="r-range" data-step="2..3">Steps 2 to 3</p>
+      <p id="r-only"  data-step="3..3">Only step 3</p>
+      <p id="r-late"  data-step="4" data-step-fx="fade">From step 4 (fade)</p>
+      <p id="r-slide" data-step="2" data-step-fx="slide-left">From step 2 (slide-left)</p>
+      <p id="r-none"  data-step="2" data-step-fx="none">From step 2 (no effect)</p>
+    </section>
+
+    <section data-type="content" id="classes" data-layout="center">
+      <h2 class="slide-title"><span id="c-word" data-step-class="hi:2..2 bold:3">Highlighted</span> title word</h2>
+      <p>Class rules: .hi only at step 2, .bold from step 3</p>
+    </section>
+
+    <section data-type="content" id="hooked" data-steps="5" data-bg-color="#f5f3ee">
+      <h2 class="slide-title">Hook-driven steps</h2>
+      <p id="hook-out"></p>
+    </section>
+
+    <section data-type="content" id="math">
+      <h2 class="slide-title">Math</h2>
+      <p>Inline $a^2 + b^2 = c^2$ and display:</p>
+      <p>$$\int_0^1 x \, dx = \tfrac{1}{2}$$</p>
+    </section>
+
+    <section data-type="black"></section>
+
+    <section data-type="content" id="app1">
+      <h2 class="slide-title">Appendix with steps</h2>
+      <p id="a1" data-step="2">Appendix step 2</p>
+    </section>
+
+    <section data-type="animation" id="app2" data-anim="demo" data-title="Appendix animation"></section>
+  </main>
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

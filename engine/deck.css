@@ -1,5 +1,11 @@
-/* Deck engine — base styles. Source of truth: engine/deck.css (inlined by tools/build.py). */
-@layer engine, components;
+/* Deck engine — base styles. Source of truth: engine/deck.css (inlined by tools/build.py).
+   Cascade: reset < vendor < engine < components < user CSS (unlayered, always wins).
+   The reset sits below vendor so it never overrides KaTeX's own margins/paddings. */
+@layer reset, vendor, engine, components;
+
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+}
 
 @layer engine {
   /* Design tokens: EfficientNet deck values x 1.125 for the 1280x800 canvas (SPEC §6, §13). */
@@ -23,15 +29,107 @@
 
     --font-sans: 'Inter', system-ui, sans-serif;
     --font-mono: 'Fira Code', ui-monospace, monospace;
-  }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    --t-slide: .25s ease;   /* slide crossfade       */
+    --t-step:  .35s ease;   /* step layer reveal     */
+  }
 
   html, body {
     width: 100%; height: 100%; overflow: hidden;
-    background: #111; color: var(--ink); font-family: var(--font-sans);
+    background: #fff; color: var(--ink); font-family: var(--font-sans);
   }
 
   /* Hidden until the engine has initialised (avoids a flash of unstyled slides). */
   html.deck-loading #deck { visibility: hidden; }
+
+  /* ── Viewport + canvas (SPEC §6) ─────────────────────────────────────── */
+  #deck-viewport {
+    position: fixed; inset: 0; overflow: hidden;
+    background-color: #fff; transition: background-color var(--t-slide);
+  }
+  #deck-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+  #deck { position: absolute; inset: 0; }
+
+  /* ── Slides ──────────────────────────────────────────────────────────── */
+  .slide {
+    position: absolute; inset: 0; background: #fff;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--t-slide);
+  }
+  .slide.is-active { opacity: 1; pointer-events: auto; }
+
+  .slide-content {
+    flex: 1; min-height: 0; padding: 42.75px 63px 81px; display: flex; flex-direction: column;
+    font-size: var(--fs-body); line-height: 1.5;   /* default for plain text; components set their own */
+  }
+  .slide-content.layout-full   { padding: 0; }
+  .slide-content.layout-center { justify-content: center; align-items: center; text-align: center; }
+
+  .slide-title { font-size: var(--fs-title); font-weight: 600; color: var(--ink); margin-bottom: 31.5px; line-height: 1.25; }
+
+  /* ── Footer (SPEC §12.4) ─────────────────────────────────────────────── */
+  .slide-footer {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 0 49.5px 18px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    pointer-events: none;
+  }
+  .eth-logo { font-size: var(--fs-footnote); font-weight: 900; letter-spacing: -0.45px; color: var(--ink); }
+  .eth-logo span { font-weight: 400; }
+  .slide-num { font-size: var(--fs-footnote); color: var(--muted); display: flex; gap: 1em; }
+
+  /* ── Steps (SPEC §8.3) ───────────────────────────────────────────────── */
+  .step-layer { transition: opacity var(--t-step), transform var(--t-step); }
+  .step-layer:not(.is-shown) { opacity: 0; pointer-events: none; }
+  .step-layer.fx-rise:not(.is-shown)       { transform: translateY(6.75px); }
+  .step-layer.fx-slide-left                { transition-duration: .4s; }
+  .step-layer.fx-slide-left:not(.is-shown) { transform: translateX(-13.5px); }
+  .step-layer.fx-none                      { transition: none; }
+
+  /* ── Table of contents (SPEC §12.2, decision R4-3) ───────────────────── */
+  .toc-list { list-style: none; display: flex; flex-direction: column; gap: 20px; }
+  .toc-item { display: flex; gap: 16px; align-items: flex-start; font-size: var(--fs-body); line-height: 1.5; }
+  .toc-item .num {
+    flex-shrink: 0; width: 29.5px; height: 29.5px; margin-top: 5px;
+    background: var(--eth); color: #fff; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: var(--fs-footnote); font-weight: 700; line-height: 1;
+  }
+  .toc-sub { list-style: none; margin-top: 4px; display: flex; flex-direction: column; gap: 3.5px; }
+  .toc-sub li { font-size: var(--fs-sub); color: #444; display: flex; gap: 9px; }
+  .toc-sub li::before { content: "–"; color: #888; flex-shrink: 0; }
+
+  /* ── Special slides ──────────────────────────────────────────────────── */
+  .slide--black { background: #000; }
+  .slide--black > * { display: none; }
+
+  /* Temporary stubs: the real title slide arrives in P2, animation slides in P4. */
+  .slide--title { background: #1c2f52; color: #fff; justify-content: flex-end; }
+  .title-stub { margin: 0 0 31.5px; padding: 45px 58.5px 49.5px 49.5px; background: var(--eth); max-width: 58%; }
+  .title-stub-title { font-size: var(--fs-cover-title); font-weight: 700; line-height: 1.3; margin-bottom: 18px; }
+  .title-stub-sub { font-size: var(--fs-sub); color: rgba(255,255,255,.78); margin-bottom: 22.5px; }
+  .title-stub-sub:empty { display: none; }
+  .title-stub-presenter { font-size: var(--fs-body); font-weight: 700; }
+  .slide--animation { background: #f5f3ee; }
+  .anim-stub { margin: auto; font-size: var(--fs-sub); color: var(--muted); }
+
+  /* ── Dev warnings badge (decision R4-1; only rendered with ?dev) ─────── */
+  #deck-warnings {
+    position: fixed; left: 10px; bottom: 10px; z-index: 10000; max-width: min(640px, 90vw);
+    font: 500 13px/1.4 var(--font-sans); color: #fff;
+    display: grid; grid-template-columns: 1fr auto; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  }
+  #deck-warnings.has-warnings { background: #c62828; }
+  #deck-warnings.no-warnings  { background: #2e7d32; }
+  #deck-warnings button { all: unset; cursor: pointer; padding: 6px 12px; }
+  #deck-warnings .dw-close { opacity: .8; }
+  #deck-warnings .dw-close:hover { opacity: 1; }
+  #deck-warnings .dw-list {
+    display: none; grid-column: 1 / -1; max-height: 40vh; overflow-y: auto;
+    margin: 0; padding: 4px 14px 10px 32px; background: rgba(0,0,0,.18); font-weight: 400;
+  }
+  #deck-warnings.open .dw-list { display: block; }
+  #deck-warnings .dw-list li { padding: 2px 0; }
 }

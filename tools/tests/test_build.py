@@ -87,7 +87,18 @@ class BuildTest(unittest.TestCase):
             self.assertEqual(opens, closes)
 
     def test_deterministic(self):
+        build.deck_engine_block.cache_clear()
         self.assertEqual(build.build_outputs(), self.outputs)
+
+    def test_cascade_layers(self):
+        # Deck: layer order declared before any layered rule; vendor CSS layered, reset below it.
+        vendor_css = self.deck[self.deck.index('<style id="deck-vendor-css">'):]
+        self.assertTrue(vendor_css.split("\n", 2)[1] == build.DECK_LAYER_ORDER)
+        self.assertIn("@layer vendor {", vendor_css)
+        self.assertIn(build.DECK_LAYER_ORDER, (build.ENGINE / "deck.css").read_text(encoding="utf-8"))
+        # Animations: vendor CSS stays unlayered (page CSS like `* {margin:0}` must not beat KaTeX).
+        anim_vendor = self.anim[self.anim.index('<style id="anim-vendor-css">'):self.anim.index("</style>")]
+        self.assertNotIn("@layer", anim_vendor)
 
     def test_check_detects_stale_output(self):
         with tempfile.TemporaryDirectory() as tmp:

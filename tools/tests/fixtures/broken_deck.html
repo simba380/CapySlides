@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: broken deck</title>
+  <script id="deck-config">
+    const DECK = {
+      title: 'Broken fixture',
+      toc: 'not an array',
+      hooks: {
+        thrower: () => { throw new Error('boom'); },
+        ghost: () => {},
+        notfn: 42,
+      },
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <section data-type="toc"></section>
+    <section data-type="title"></section>
+    <section data-type="weird" id="thrower">
+      <h2 class="slide-title">Unknown type</h2>
+      <p data-step="2..1">bad range</p>
+      <p data-step="2" data-step-fx="wobble">bad effect</p>
+      <span data-step-class="hi">bad class rule</span>
+      <p>$\notacommand$</p>
+    </section>
+    <section data-type="content" id="dup" data-steps="1">
+      <h2 class="slide-title">Declared steps too low</h2>
+      <p data-step="3">step 3</p>
+    </section>
+    <section data-type="content" id="dup" data-layout="sideways">
+      <p>no title here</p>
+    </section>
+    <div>not a section</div>
+  </main>
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

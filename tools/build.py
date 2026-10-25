@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import functools
 import json
 import re
 import sys
@@ -29,6 +30,10 @@ DECK_FONTS = ("Inter", "Fira Code")
 ANIM_FONTS = ("DM Sans", "DM Serif Display", "DM Mono")
 
 PLACEHOLDER = "<!-- @@{}@@ -->"
+
+# Cascade layer order for decks, declared before any layered rule (the first mention of a layer
+# fixes its position). User CSS stays unlayered and therefore always wins. Must match engine/deck.css.
+DECK_LAYER_ORDER = "@layer reset, vendor, engine, components;"
 
 
 class BuildError(Exception):
@@ -137,12 +142,16 @@ def katex_js(pkg: dict) -> str:
 
 # ── blocks ───────────────────────────────────────────────────────────────────
 
+@functools.lru_cache(maxsize=4)
 def deck_engine_block(version: str) -> str:
     pkgs = packages()
     body = "\n".join([
         '<style id="deck-vendor-css">',
+        DECK_LAYER_ORDER,
+        "@layer vendor {",
         safe_style("\n".join(fontsource_css(pkgs[f]) for f in DECK_FONTS)),
         safe_style(katex_css(pkgs["KaTeX"])),
+        "}",
         "</style>",
         '<style id="deck-engine-css">',
         safe_style(engine_source("deck.css", version)),
@@ -159,6 +168,8 @@ def deck_engine_block(version: str) -> str:
 
 
 def anim_vendor_block(version: str) -> str:
+    # Unlayered on purpose: animation pages bring their own unlayered CSS (often a `* {margin:0}`
+    # reset), which would override every layered KaTeX rule regardless of specificity.
     pkgs = packages()
     body = "\n".join([
         '<style id="anim-vendor-css">',
@@ -192,13 +203,22 @@ def fill(shell: str, blocks: dict[str, str]) -> str:
 
 # ── build ────────────────────────────────────────────────────────────────────
 
+def engine_version() -> str:
+    return text(ENGINE / "VERSION").strip()
+
+
+def build_deck(shell: str, version: str) -> str:
+    """Fill a deck shell (user zone + <!-- @@DECK_ENGINE@@ --> placeholder) with the engine block."""
+    return fill(shell.replace("\r\n", "\n"), {"DECK_ENGINE": deck_engine_block(version)})
+
+
 def build_outputs() -> dict[str, bytes]:
     """Return {path relative to template/: content} for a fresh build."""
     problems = fetch_vendor.verify()
     if problems:
         raise BuildError("vendor files do not match lock.json:\n  " + "\n  ".join(problems))
-    version = text(ENGINE / "VERSION").strip()
-    deck = fill(text(ENGINE / "shell" / "presentation.html"), {"DECK_ENGINE": deck_engine_block(version)})
+    version = engine_version()
+    deck = build_deck(text(ENGINE / "shell" / "presentation.html"), version)
     anim = fill(text(ENGINE / "shell" / "animations.html"), {
         "ANIM_VENDOR": anim_vendor_block(version),
         "ANIM_CONTRACT": anim_contract_block(version),
