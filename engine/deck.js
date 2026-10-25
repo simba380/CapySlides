@@ -1,7 +1,8 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
    Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
    §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
-   Later phases plug in here: P3 assets; P4 animations; P5 math escaping + components. */
+   §10 assets (missing images → placeholders).
+   Later phases plug in here: P4 animations; P5 math escaping + components. */
 (() => {
   'use strict';
 
@@ -315,7 +316,7 @@
       el.appendChild(ignored);
     }
     const bg = h('div', 'cover-bg');
-    if (cfg.cover.background) bg.style.backgroundImage = `url(${JSON.stringify(String(cfg.cover.background))})`;
+    if (cfg.cover.background) bg.dataset.bg = String(cfg.cover.background);   // loaded by initBackgrounds
 
     const logo = h('div', 'cover-eth', 'ETH ');
     logo.appendChild(h('span', '', 'zürich'));
@@ -439,6 +440,138 @@
 
     for (const id of Object.keys(cfg.hooks)) {
       if (!ids.has(id)) warn(`DECK.hooks["${id}"] does not match any slide id`);
+    }
+  }
+
+  // ── Assets (SPEC §10): missing images become labelled placeholders ────────
+  // A missing <img> keeps its element (so every CSS rule and step attribute still applies) and
+  // gets a white, bordered SVG of its declared width × height as src. Backgrounds are declared
+  // with data-bg so they can be preloaded and replaced the same way.
+
+  const ABS_URL_RE = /url\(\s*['"]?(?!data:)/i;
+
+  function fileName(path) {
+    return String(path).split(/[?#]/)[0].split(/[\\/]/).pop() || String(path);
+  }
+
+  function escapeXml(text) {
+    return text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
+  }
+
+  /** White box with a grey border and a one-line label (scales with the box), as SVG data URI. */
+  function placeholderSvg(kind, path, width, height) {
+    const W = Math.max(1, Math.round(width)), H = Math.max(1, Math.round(height));
+    const label = `${kind} "${fileName(path)}" not found`;
+    const fs = Math.max(4, Math.min(0.8 * W / (label.length * 0.56), H / 3));   // ~80 % of the width
+    const fit = label.length * fs * 0.56 > W * 0.9
+      ? ` textLength="${(W * 0.9).toFixed(1)}" lengthAdjust="spacingAndGlyphs"` : '';
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+      `<filter id="g"><feColorMatrix type="saturate" values="0"/></filter>` +   // grey label, no LCD colour fringes
+      `<rect x="1" y="1" width="${W - 2}" height="${H - 2}" fill="#fff" stroke="#c9c9c9" stroke-width="2" vector-effect="non-scaling-stroke"/>` +
+      `<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="#888" filter="url(#g)" ` +
+      `font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="${fs.toFixed(1)}"${fit}>${escapeXml(label)}</text></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  // Image sizes seen while an image loaded are remembered in this browser (localStorage, per deck
+  // file), so a missing image without width/height attributes still gets its real size (R7-1).
+  const SIZE_KEY = 'deck-image-sizes:' + location.pathname;
+
+  function sizeMemory() {
+    try { return JSON.parse(localStorage.getItem(SIZE_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+
+  function rememberSize(src, width, height) {
+    if (!(width > 0 && height > 0)) return;
+    try {
+      const sizes = sizeMemory();
+      const old = sizes[src];
+      if (old && old[0] === width && old[1] === height) return;
+      sizes[src] = [width, height];
+      localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+    } catch (e) { /* storage unavailable (private mode, blocked): nothing to remember */ }
+  }
+
+  function missingImage(img) {
+    if (img.hasAttribute('data-asset-missing')) return;
+    const src = img.getAttribute('src');
+    let W = Number(img.getAttribute('width')), H = Number(img.getAttribute('height'));
+    if (!(W > 0 && H > 0)) {
+      const remembered = sizeMemory()[src];
+      if (remembered) [W, H] = remembered;
+      else {
+        // Real size unknown (already warned): fill the parent's width at 16:9.
+        W = (img.parentElement && img.parentElement.clientWidth) || 640;
+        H = W * 9 / 16;
+      }
+    }
+    img.setAttribute('data-asset-missing', src);
+    img.classList.add('asset-missing');
+    img.src = placeholderSvg('image', src, W, H);
+    warn(`image "${fileName(src)}" not found (${src})`, { el: img });
+  }
+
+  function initImages(root) {
+    for (const img of root.querySelectorAll('img')) {
+      const src = img.getAttribute('src');
+      if (!src) { warn('<img> without src', { el: img }); continue; }
+      if (/^data:/i.test(src)) continue;
+      if (!(img.hasAttribute('width') && img.hasAttribute('height'))) {
+        warn(`image "${fileName(src)}" has no width/height attributes (its natural pixel size); if the file goes missing, only a size remembered by this browser can keep the placeholder's size`, { el: img });
+      }
+      // Errors may already have happened while the page was parsed, before this script ran.
+      const loaded = () => {   // never remember the placeholder's own (guessed) size
+        if (!img.hasAttribute('data-asset-missing')) rememberSize(src, img.naturalWidth, img.naturalHeight);
+      };
+      if (img.complete) { if (img.naturalWidth) loaded(); else missingImage(img); }
+      else {
+        img.addEventListener('error', () => missingImage(img), { once: true });
+        img.addEventListener('load', loaded, { once: true });
+      }
+    }
+  }
+
+  function markBackgroundMissing(el, path) {
+    const W = el.offsetWidth || cfg.canvas.width, H = el.offsetHeight || cfg.canvas.height;
+    el.classList.add('asset-missing');
+    el.setAttribute('data-asset-missing', path);
+    Object.assign(el.style, {
+      backgroundImage: `url("${placeholderSvg('image', path, W, H)}")`,
+      backgroundSize: '100% 100%', backgroundPosition: '0 0', backgroundRepeat: 'no-repeat',
+    });
+    const slide = slides[slideIndexOf(el)];
+    if (slide && slide.type === 'title') {
+      slide.el.classList.add('cover-missing');
+      if (state.current === slide.index) updateLetterbox();
+    }
+    warn(`image "${fileName(path)}" not found (${path})`, { el });
+  }
+
+  function initBackgrounds(root) {
+    for (const el of root.querySelectorAll('[data-bg]')) {
+      const path = el.dataset.bg;
+      const probe = new Image();
+      probe.onload = () => {
+        el.style.backgroundImage = `url(${JSON.stringify(path)})`;
+        if (el.dataset.bgSize) el.style.backgroundSize = el.dataset.bgSize;
+        if (el.dataset.bgPosition) el.style.backgroundPosition = el.dataset.bgPosition;
+      };
+      probe.onerror = () => markBackgroundMissing(el, path);
+      probe.src = path;
+    }
+  }
+
+  /** CSS url(...) images cannot be checked for existence: point authors to <img> / data-bg. */
+  function checkCssUrls() {
+    const userCss = document.getElementById('deck-user-styles');
+    if (userCss && ABS_URL_RE.test(userCss.textContent)) {
+      warn('user CSS loads images with url(...); a missing file cannot be detected there — use <img> or data-bg');
+    }
+    for (const el of document.querySelectorAll('#deck [style*="url("]')) {
+      if (ABS_URL_RE.test(el.getAttribute('style'))) {
+        warn('inline style loads an image with url(...); use data-bg="…" so a missing file shows a placeholder', { el });
+      }
     }
   }
 
@@ -845,6 +978,9 @@
       if (!PREVIEW) buildTopbar();
       if (DEV) buildBadge();
       parseSlides(deckEl);
+      checkCssUrls();
+      initImages(deckEl);
+      initBackgrounds(deckEl);
       renderMath();
       renderDates();
       fit();

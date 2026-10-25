@@ -124,6 +124,16 @@
   .cover-subtitle { font-size: var(--fs-sub); color: rgba(255,255,255,.78); margin-bottom: 22.5px; }
   .cover-presenter { font-size: var(--fs-body); font-weight: 700; }
 
+  /* Cover background missing (SPEC §10.3): white placeholder, header text turns dark. */
+  .slide--title.cover-missing { background: #fff; }
+  .cover-missing .cover-header { color: var(--ink); text-shadow: none; }
+
+  /* ── Assets (SPEC §10) ───────────────────────────────────────────────── */
+  [data-bg] { background-position: center; background-size: cover; background-repeat: no-repeat; }
+  /* width/height attributes only provide the intrinsic size + aspect ratio: a CSS width or height
+     then scales the image proportionally (without this, the height attribute would stay fixed). */
+  #deck img { width: auto; height: auto; max-width: 100%; }
+
   /* Temporary stub: animation slides arrive in P4. */
   .slide--animation { background: #f5f3ee; }
   .anim-stub { margin: auto; font-size: var(--fs-sub); color: var(--muted); }

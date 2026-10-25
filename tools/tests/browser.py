@@ -63,14 +63,28 @@ class ProbeError(AssertionError):
     pass
 
 
-def run(page: str, probe_js: str, name: str, size=(1280, 800), query: str = "", budget_ms: int = 3000):
-    """Write `page` (+ probe) to .tmp/fixtures/<name>.html, load it headless, return the probe result."""
+TEMPLATE_IMAGES = ROOT / "template" / "images"
+
+
+def run(page: str, probe_js: str, name: str, size=(1280, 800), query: str = "", budget_ms: int = 3000,
+        images: bool = True, subdir: str | None = None):
+    """Write `page` (+ probe) to .tmp/fixtures/<name>.html, load it headless, return the probe result.
+
+    With images=True the template's images/ folder sits next to the page (like a real deck);
+    images=False writes the page to .tmp/fixtures/noimages/ where no images folder exists.
+    `subdir` puts the page into its own folder (e.g. to add/remove image files between runs).
+    The browser profile (and thus localStorage) persists across runs."""
     browser = find_browser()
     if not browser:
         raise RuntimeError("no Chromium-based browser found (set DECK_TEST_BROWSER)")
-    FIXTURES_OUT.mkdir(parents=True, exist_ok=True)
-    (FIXTURES_OUT / f"{name}.html").write_text(page, encoding="utf-8", newline="\n")
-    probed = FIXTURES_OUT / f"{name}.probe.html"
+    out = FIXTURES_OUT / (subdir or ("" if images else "noimages"))
+    out.mkdir(parents=True, exist_ok=True)
+    if images:
+        shutil.copytree(TEMPLATE_IMAGES, out / "images", dirs_exist_ok=True)
+    elif (out / "images").exists():
+        shutil.rmtree(out / "images")
+    (out / f"{name}.html").write_text(page, encoding="utf-8", newline="\n")
+    probed = out / f"{name}.probe.html"
     probed.write_text(page.replace("</body>", PROBE_WRAPPER % probe_js + "\n</body>"), encoding="utf-8", newline="\n")
 
     cmd = [

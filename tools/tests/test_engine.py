@@ -8,6 +8,7 @@ events. Skipped when no Chromium-based browser is installed.
 from __future__ import annotations
 
 import datetime
+import shutil
 import sys
 import unittest
 from functools import lru_cache
@@ -508,6 +509,124 @@ class TitleSlideTest(unittest.TestCase):
         r = probe("steps_deck-cover-content", "return { w: Deck.warnings, N: Deck.slides[0].N };", page=page)
         self.assertEqual(r["N"], 1)
         self.assertTrue(any("title slide content is ignored" in w for w in r["w"]))
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class AssetsTest(unittest.TestCase):
+
+    IMG = """
+      const box = el => { const r = el.getBoundingClientRect(), s = Deck.state.scale;
+                          return [Math.round(r.width / s), Math.round(r.height / s)]; };
+      const unxml = t => t.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+      const label = el => unxml(decodeURIComponent((el.currentSrc || el.src || '').split(',')[1] || ''));
+      const bgLabel = el => unxml(decodeURIComponent((getComputedStyle(el).backgroundImage.match(/,(.*)"\\)$/) || [])[1] || ''));
+    """
+
+    def test_missing_images_become_sized_placeholders(self):
+        r = probe("assets_deck-imgs", self.IMG + """
+          await new Promise(r => setTimeout(r, 300));
+          Deck.goTo('imgs', 3);
+          const info = id => { const el = $(id); return {
+            missing: el.hasAttribute('data-asset-missing'), box: box(el),
+            svg: (el.getAttribute('src') || '').startsWith('data:image/svg+xml'),
+            label: label(el), shown: el.classList.contains('step-layer') ? vis(id) : null }; };
+          return { ok: info('ok'), miss: info('miss'), missStep: info('miss-step'), nosize: info('nosize'),
+                   missNosize: info('miss-nosize'), problems: Deck.problems.filter(p => p.slide === 2),
+                   okNatural: $('ok').naturalWidth };
+        """)
+        self.assertFalse(r["ok"]["missing"])
+        self.assertEqual(r["okNatural"], 1760)
+        self.assertEqual(r["ok"]["box"], [176, 86])
+        miss = r["miss"]
+        self.assertTrue(miss["missing"] and miss["svg"])
+        self.assertEqual(miss["box"], [400, 200])                 # CSS width 400, aspect from width/height attrs
+        self.assertIn('image "missing_figure.png" not found', miss["label"])
+        self.assertIn('stroke="#c9c9c9"', miss["label"])
+        step = r["missStep"]
+        self.assertEqual(step["box"], [150, 150])
+        self.assertTrue(step["shown"], "a missing image keeps its step layer")
+        self.assertFalse(r["nosize"]["missing"])
+        self.assertEqual(r["missNosize"]["box"], [480, 270])     # parent width at 16:9
+        by_msg = {p["message"]: p["step"] for p in r["problems"]}
+        self.assertEqual(by_msg['image "missing_figure.png" not found (images/missing_figure.png)'], 1)
+        self.assertEqual(by_msg['image "late.png" not found (images/late.png)'], 3)
+        self.assertEqual(by_msg['image "nope.png" not found (images/nope.png)'], 2)
+        self.assertIn(1, [s for m, s in by_msg.items() if 'eth_zurich_aerial.png" has no width/height' in m])
+        self.assertTrue(any('"nope.png" has no width/height' in m for m in by_msg))
+
+    def test_backgrounds_and_css_urls(self):
+        r = probe("assets_deck-bgs", self.IMG + """
+          await new Promise(r => setTimeout(r, 300));
+          const ok = $('bg-ok'), miss = $('bg-miss'), cs = el => getComputedStyle(el);
+          return {
+            ok: { img: cs(ok).backgroundImage, size: cs(ok).backgroundSize, missing: ok.classList.contains('asset-missing') },
+            miss: { missing: miss.classList.contains('asset-missing'), size: cs(miss).backgroundSize, label: bgLabel(miss) },
+            warnings: Deck.warnings,
+            cssUrlSlide: Deck.problems.find(p => p.message.startsWith('inline style loads'))?.slide,
+          };
+        """)
+        self.assertIn("images/eth_zurich_aerial.png", r["ok"]["img"])
+        self.assertEqual(r["ok"]["size"], "contain")
+        self.assertFalse(r["ok"]["missing"])
+        self.assertTrue(r["miss"]["missing"])
+        self.assertEqual(r["miss"]["size"], "100% 100%")
+        self.assertIn('image "gone.png" not found', r["miss"]["label"])
+        self.assertIn('width="300" height="150"', r["miss"]["label"])
+        self.assertIn('image "gone.png" not found (images/gone.png)', r["warnings"])
+        self.assertEqual(r["cssUrlSlide"], 3)
+
+    def test_missing_images_folder(self):
+        r = probe("steps_deck-noimages", self.IMG + """
+          await new Promise(r => setTimeout(r, 300));
+          const title = $('slide-1');
+          return { coverMissing: title.classList.contains('cover-missing'),
+                   letterbox: $('deck-viewport').style.backgroundColor,
+                   header: getComputedStyle(title.querySelector('.cover-header')).color,
+                   bgLabel: bgLabel(title.querySelector('.cover-bg')),
+                   problems: Deck.problems };
+        """, images=False)
+        self.assertTrue(r["coverMissing"])
+        self.assertEqual(r["letterbox"], "rgb(255, 255, 255)")
+        self.assertEqual(r["header"], "rgb(26, 26, 26)")
+        self.assertIn('image "eth_zurich_aerial.png" not found', r["bgLabel"])
+        self.assertIn({"message": 'image "eth_zurich_aerial.png" not found (images/eth_zurich_aerial.png)',
+                       "slide": 0, "step": 1}, r["problems"])
+
+    def test_remembered_size_for_image_without_attributes(self):
+        # 1st open: image present, no width/height → its natural size is remembered (localStorage).
+        # 2nd open of the same file with the image gone → placeholder keeps the real aspect ratio.
+        page = fixture("steps_deck").replace(
+            '<h2 class="slide-title">Basic steps</h2>',
+            '<h2 class="slide-title">Basic steps</h2>'
+            '<img id="mem" data-step="1" src="images/remembered.png" style="width:352px">'
+            '<img id="never" data-step="1" src="images/never_seen.png" style="width:320px">')
+        folder = browser.FIXTURES_OUT / "memory"
+        (folder / "images").mkdir(parents=True, exist_ok=True)
+        shutil.copy(browser.TEMPLATE_IMAGES / "eth_zurich_aerial.png", folder / "images" / "remembered.png")
+        js = self.IMG + """
+          await new Promise(r => setTimeout(r, 300));
+          Deck.goTo('basic');
+          return { mem: box($('mem')), memMissing: $('mem').hasAttribute('data-asset-missing'),
+                   never: box($('never')),
+                   stored: JSON.parse(localStorage.getItem('deck-image-sizes:' + location.pathname) || '{}') };
+        """
+        first = probe("steps_deck-memory", js, page=page, subdir="memory")
+        self.assertFalse(first["memMissing"])
+        self.assertEqual(first["stored"].get("images/remembered.png"), [1760, 862])
+        (folder / "images" / "remembered.png").unlink()
+        second = probe("steps_deck-memory", js, page=page, subdir="memory")
+        self.assertTrue(second["memMissing"])
+        self.assertEqual(second["mem"], [352, 172])            # 1760 x 862 scaled to width 352
+        self.assertEqual(second["never"], [320, 180])          # never seen: 16:9 fallback
+        self.assertNotIn("images/never_seen.png", second["stored"], "placeholder sizes are never remembered")
+
+    def test_placeholders_in_dev_navigator(self):
+        r = probe("assets_deck-dev", """
+          await new Promise(r => setTimeout(r, 300));
+          $('nav-btn').click();
+          return [...document.querySelectorAll('#nav-overlay .deck-row[data-slide="2"] .row-problems li')].map(li => li.textContent);
+        """, query="?dev")
+        self.assertIn('step 3 · image "late.png" not found (images/late.png)', r)
 
 
 if __name__ == "__main__":
