@@ -6,3 +6,5 @@ template/*.html -text
 *.woff2 binary
 # Built example decks: generated with LF endings, keep them byte-identical.
 examples/*/*_presentation.html -text
+# Generated guide: keep byte-identical to the build output.
+AUTHORING.md -text
