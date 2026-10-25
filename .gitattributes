@@ -4,3 +4,5 @@ engine/vendor/** -text
 template/*.html -text
 *.png binary
 *.woff2 binary
+# Built example decks: generated with LF endings, keep them byte-identical.
+examples/*/*_presentation.html -text
