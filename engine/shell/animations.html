@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Animations</title>
+
+<!-- @@ANIM_VENDOR@@ -->
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f3ee; --paper: #fffef9; --rule: #dedad2;
+      --ink: #1a1814; --muted: #7a7570; --accent: #2a4a8c;
+    }
+    body {
+      background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--ink);
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden; padding: 16px; gap: 16px;
+    }
+    h1 { font-family: 'DM Serif Display', serif; font-size: 1.9rem; text-align: center; }
+    .panel {
+      flex: 1; background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.07); padding: 28px 36px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .mono { font-family: 'DM Mono', monospace; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>Animation template</h1>
+
+  <!-- TEMPORARY (P0): smoke test for vendored fonts + KaTeX. The real starter animation follows in P4/P6. -->
+  <div class="panel">
+    <p>DM Sans 400 — body text</p>
+    <p style="font-weight:500">DM Sans 500 — medium</p>
+    <p class="mono">DM Mono 500 — φ = 1.0</p>
+    <div id="formula"></div>
+  </div>
+
+  <script>
+    katex.render('d = \\alpha^\\phi,\\; w = \\beta^\\phi,\\; r = \\gamma^\\phi',
+                 document.getElementById('formula'), { throwOnError: false, displayMode: true });
+  </script>
+
+<!-- @@ANIM_CONTRACT@@ -->
+</body>
+</html>

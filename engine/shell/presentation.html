@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" class="deck-loading">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presentation Title — Simon Meier</title>
+
+  <!-- ═════ USER ZONE ═════════════════════════════════════════════════════ -->
+  <style id="deck-user-styles">
+    /* Presentation-specific CSS. Always overrides engine and component styles. */
+
+    /* TEMPORARY (P0): smoke-test slide styles, removed in P1. */
+    .p0-smoke { position: absolute; inset: 0; background: #fff; padding: 48px 64px; display: flex; flex-direction: column; gap: 18px; }
+    .p0-smoke h2 { font-size: var(--fs-title); font-weight: 600; }
+    .p0-smoke p  { font-size: var(--fs-body); line-height: 1.4; }
+    .p0-smoke code { font-family: var(--font-mono); font-size: var(--fs-code); background: #1e1e2e; color: #cdd6f4; padding: 6px 12px; border-radius: 8px; align-self: flex-start; }
+    .p0-smoke .eth { font-size: 22.5px; font-weight: 900; letter-spacing: -.5px; }
+    .p0-smoke .eth span { font-weight: 400; }
+  </style>
+
+  <script id="deck-config">
+    const DECK = {
+      title:     'Presentation Title',
+      subtitle:  'Authors (Year)',
+      presenter: 'Simon Meier',
+      course:    { title: 'Course number and name', type: 'Seminar', semester: 'FS26' },
+      cover:     { background: 'images/eth_zurich_aerial.png', boxMaxWidth: '58%' },
+      toc:       ['First topic', 'Second topic', 'Third topic'],
+      animations: [],
+      date:      'auto',
+      canvas:    { width: 1280, height: 800 },
+      hooks:     {},
+    };
+  </script>
+</head>
+<body>
+  <main id="deck">
+    <!-- TEMPORARY (P0): smoke test for vendored fonts + KaTeX. Replaced by the real slide set in P1/P2. -->
+    <section class="p0-smoke" data-type="content">
+      <h2>P0 smoke test — Inter, Fira Code, KaTeX</h2>
+      <p class="eth">ETH <span>zürich</span></p>
+      <p style="font-weight:300">Inter 300 — light</p>
+      <p style="font-weight:400">Inter 400 — regular · Greek: α β γ ϕ</p>
+      <p style="font-weight:600">Inter 600 — semibold</p>
+      <p style="font-weight:800">Inter 800 — extra bold</p>
+      <code>self.conv = nn.Conv2d(in_channels=3, out_channels=64)</code>
+      <p>Inline math: $d = \alpha^\phi,\; w = \beta^\phi,\; r = \gamma^\phi$</p>
+      <p>$$\alpha \cdot \beta^2 \cdot \gamma^2 \approx 2 \qquad \alpha, \beta, \gamma \ge 1$$</p>
+    </section>
+  </main>
+  <!-- ═════ END USER ZONE ═════════════════════════════════════════════════ -->
+
+<!-- @@DECK_ENGINE@@ -->
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Vendored files are hash-locked: never let git rewrite their line endings.
+engine/vendor/** -text
+# Built templates are generated with LF endings; keep them byte-identical.
+template/*.html -text
+*.png binary
+*.woff2 binary

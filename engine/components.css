@@ -1,0 +1,4 @@
+/* Deck engine — component library (SPEC §14). Source of truth: engine/components.css.
+   Components are added in P5; user CSS (unlayered) always overrides this layer. */
+@layer components {
+}

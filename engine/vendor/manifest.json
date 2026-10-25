@@ -1,0 +1,115 @@
+{
+  "_comment": "Pinned third-party assets inlined into every deck. Edit, then run: python tools/fetch_vendor.py",
+  "cdn": "https://cdn.jsdelivr.net/npm/{package}@{version}/{path}",
+  "packages": [
+    {
+      "package": "katex",
+      "version": "0.16.47",
+      "license": "MIT",
+      "target": "katex",
+      "files": [
+        "LICENSE",
+        "dist/katex.min.js",
+        "dist/katex.min.css",
+        "dist/contrib/auto-render.min.js",
+        "dist/fonts/KaTeX_AMS-Regular.woff2",
+        "dist/fonts/KaTeX_Caligraphic-Bold.woff2",
+        "dist/fonts/KaTeX_Caligraphic-Regular.woff2",
+        "dist/fonts/KaTeX_Fraktur-Bold.woff2",
+        "dist/fonts/KaTeX_Fraktur-Regular.woff2",
+        "dist/fonts/KaTeX_Main-Bold.woff2",
+        "dist/fonts/KaTeX_Main-BoldItalic.woff2",
+        "dist/fonts/KaTeX_Main-Italic.woff2",
+        "dist/fonts/KaTeX_Main-Regular.woff2",
+        "dist/fonts/KaTeX_Math-BoldItalic.woff2",
+        "dist/fonts/KaTeX_Math-Italic.woff2",
+        "dist/fonts/KaTeX_SansSerif-Bold.woff2",
+        "dist/fonts/KaTeX_SansSerif-Italic.woff2",
+        "dist/fonts/KaTeX_SansSerif-Regular.woff2",
+        "dist/fonts/KaTeX_Script-Regular.woff2",
+        "dist/fonts/KaTeX_Size1-Regular.woff2",
+        "dist/fonts/KaTeX_Size2-Regular.woff2",
+        "dist/fonts/KaTeX_Size3-Regular.woff2",
+        "dist/fonts/KaTeX_Size4-Regular.woff2",
+        "dist/fonts/KaTeX_Typewriter-Regular.woff2"
+      ]
+    },
+    {
+      "package": "@fontsource-variable/inter",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "target": "fonts/inter",
+      "family": "Inter",
+      "files": [
+        "LICENSE",
+        "wght.css",
+        "files/inter-latin-wght-normal.woff2",
+        "files/inter-latin-ext-wght-normal.woff2",
+        "files/inter-greek-wght-normal.woff2",
+        "files/inter-greek-ext-wght-normal.woff2"
+      ]
+    },
+    {
+      "package": "@fontsource/fira-code",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "target": "fonts/fira-code",
+      "family": "Fira Code",
+      "files": [
+        "LICENSE",
+        "400.css",
+        "500.css",
+        "files/fira-code-latin-400-normal.woff2",
+        "files/fira-code-latin-500-normal.woff2",
+        "files/fira-code-latin-ext-400-normal.woff2",
+        "files/fira-code-latin-ext-500-normal.woff2",
+        "files/fira-code-greek-400-normal.woff2",
+        "files/fira-code-greek-500-normal.woff2",
+        "files/fira-code-greek-ext-400-normal.woff2",
+        "files/fira-code-greek-ext-500-normal.woff2"
+      ]
+    },
+    {
+      "package": "@fontsource/dm-sans",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "target": "fonts/dm-sans",
+      "family": "DM Sans",
+      "files": [
+        "LICENSE",
+        "400.css",
+        "500.css",
+        "files/dm-sans-latin-400-normal.woff2",
+        "files/dm-sans-latin-500-normal.woff2",
+        "files/dm-sans-latin-ext-400-normal.woff2",
+        "files/dm-sans-latin-ext-500-normal.woff2"
+      ]
+    },
+    {
+      "package": "@fontsource/dm-serif-display",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "target": "fonts/dm-serif-display",
+      "family": "DM Serif Display",
+      "files": [
+        "LICENSE",
+        "400.css",
+        "files/dm-serif-display-latin-400-normal.woff2",
+        "files/dm-serif-display-latin-ext-400-normal.woff2"
+      ]
+    },
+    {
+      "package": "@fontsource/dm-mono",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "target": "fonts/dm-mono",
+      "family": "DM Mono",
+      "files": [
+        "LICENSE",
+        "500.css",
+        "files/dm-mono-latin-500-normal.woff2",
+        "files/dm-mono-latin-ext-500-normal.woff2"
+      ]
+    }
+  ]
+}

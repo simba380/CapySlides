@@ -1,0 +1,37 @@
+/* Deck engine — base styles. Source of truth: engine/deck.css (inlined by tools/build.py). */
+@layer engine, components;
+
+@layer engine {
+  /* Design tokens: EfficientNet deck values x 1.125 for the 1280x800 canvas (SPEC §6, §13). */
+  :root {
+    --eth:            #1F407A;
+    --ink:            #1a1a1a;
+    --muted:          #666;
+    --title-mark:     #8B6FC4;
+    --accent-1:       #3BB273;  /* original --dep (depth)      */
+    --accent-2:       #2E86AB;  /* original --wid (width)      */
+    --accent-3:       #E07A5F;  /* original --res (resolution) */
+    --accent-4:       #F0A020;  /* original highlight orange   */
+
+    --fs-cover-title: 54px;
+    --fs-title:       40.5px;
+    --fs-body:        27px;
+    --fs-sub:         25px;
+    --fs-code:        22.5px;
+    --fs-math:        36px;
+    --fs-footnote:    14.5px;
+
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'Fira Code', ui-monospace, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #111; color: var(--ink); font-family: var(--font-sans);
+  }
+
+  /* Hidden until the engine has initialised (avoids a flash of unstyled slides). */
+  html.deck-loading #deck { visibility: hidden; }
+}
