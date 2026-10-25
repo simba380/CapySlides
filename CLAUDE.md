@@ -24,4 +24,7 @@ Single-file, offline HTML presentation template. **SPEC.md is the source of trut
 - `docs/example_presentation_EfficientNet/` is the untouched visual/behavioural reference.
 
 ## Authoring decks
-A guide for filling in presentations (`AUTHORING.md`) is added in phase P6.
+- `AUTHORING.md` is the guide for writing presentations (generated from `engine/AUTHORING.src.md` + the component catalog by `tools/build.py`; never edit it directly). `TOOLS.html` lists every command and helper — add any new tool there (a test enforces it).
+- Presentation folders are **self-contained** and never depend on this repository (they get zipped and submitted). Tools only act on them: `tools/new.py` (create, interactive), `tools/check.py` (problems per slide/step), `tools/image_sizes.py`, `tools/update.py` (newer engine, content untouched), `tools/pack.py` (verified zip without CLAUDE.md/AUTHORING.md).
+- Each presentation folder has a managed `CLAUDE.md` block (pointer to the central `AUTHORING.md` + version rule) and an `AUTHORING.md` copy matching its engine; `update.py` refreshes both.
+- Compatibility: engine versions are semver. Within 1.x never change the meaning of existing attributes, classes or `DECK` fields; a breaking change needs 2.0 and migration notes in `AUTHORING.md`. Bump `engine/VERSION` for every engine release.

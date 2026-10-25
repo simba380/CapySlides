@@ -2,7 +2,8 @@
 
     python tools/build.py           write template/template_presentation.html,
                                     template/template_animations.html, template/images/...,
-                                    and examples/*/<name>_presentation.html from their .src.html
+                                    examples/*/<name>_presentation.html from their .src.html,
+                                    and AUTHORING.md from engine/AUTHORING.src.md
     python tools/build.py --check   exit 1 if template/ differs from a fresh build
 
 Everything a deck needs at runtime (fonts, KaTeX, engine CSS/JS) is inlined between
@@ -256,6 +257,13 @@ def build_outputs() -> dict[str, bytes]:
     }
 
 
+def authoring_text(version: str) -> str:
+    """AUTHORING.md: engine/AUTHORING.src.md with the engine version and every catalog snippet."""
+    parts = [f"### {c['name']}\n*From: {c['from']}*\n\n```html\n{c['html']}\n```\n" for c in component_catalog()]
+    return (text(ENGINE / "AUTHORING.src.md").replace("@@ENGINE_VERSION@@", version)
+            .replace("@@COMPONENTS@@", "\n".join(parts).strip()))
+
+
 def example_outputs() -> dict[str, bytes]:
     """Return {path relative to examples/: content}: every *.src.html deck shell, built with the engine."""
     version = engine_version()
@@ -286,18 +294,21 @@ def main() -> int:
     try:
         outputs = build_outputs()
         examples = example_outputs()
+        guide = {"AUTHORING.md": authoring_text(engine_version()).encode("utf-8")}
     except BuildError as e:
         print(f"build failed: {e}", file=sys.stderr)
         return 1
     if args.check:
         files = [f"template/{rel}" for rel in stale(outputs, TEMPLATE)]
         files += [f"examples/{rel}" for rel in stale(examples, EXAMPLES)]
+        files += stale(guide, ROOT)
         for rel in files:
             print(f"stale: {rel}", file=sys.stderr)
         print("template up to date" if not files else "run: python tools/build.py")
         return 1 if files else 0
     write(outputs, TEMPLATE)
     write(examples, EXAMPLES)
+    write(guide, ROOT)
     return 0
 
 

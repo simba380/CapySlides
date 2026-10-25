@@ -147,6 +147,7 @@
       }
       if (animById.has(a.id)) { warn(`DECK.animations: duplicate id "${a.id}"`); return; }
       const anim = { id: a.id, name: typeof a.name === 'string' && a.name ? a.name : a.id, file: a.file };
+      checkInsideFolder('animation file', a.file);
       animById.set(anim.id, anim);
       anims.push(anim);
     });
@@ -496,6 +497,20 @@
 
   const ABS_URL_RE = /url\(\s*['"]?(?!data:)/i;
 
+  /** A presentation folder must stay self-contained (zip + submit, R12-3): absolute paths, URLs and
+      `..` leave it. */
+  function outsideFolder(path) {
+    const p = String(path || '').trim();
+    if (/^data:/i.test(p)) return false;
+    return /^([a-z][a-z0-9+.-]*:|[\\/])/i.test(p) || /(^|[\\/])\.\.([\\/]|$)/.test(p);
+  }
+
+  function checkInsideFolder(kind, path, where) {
+    if (outsideFolder(path)) {
+      warn(`${kind} "${path}" points outside the presentation folder; it will be missing once the folder is copied or zipped (keep files in images/ or next to the deck)`, where);
+    }
+  }
+
   function fileName(path) {
     return String(path).split(/[?#]/)[0].split(/[\\/]/).pop() || String(path);
   }
@@ -563,6 +578,7 @@
       const src = img.getAttribute('src');
       if (!src) { warn('<img> without src', { el: img }); continue; }
       if (/^data:/i.test(src)) continue;
+      checkInsideFolder('image', src, { el: img });
       if (!(img.hasAttribute('width') && img.hasAttribute('height'))) {
         warn(`image "${fileName(src)}" has no width/height attributes (its natural pixel size); if the file goes missing, only a size remembered by this browser can keep the placeholder's size`, { el: img });
       }
@@ -597,6 +613,7 @@
   function initBackgrounds(root) {
     for (const el of root.querySelectorAll('[data-bg]')) {
       const path = el.dataset.bg;
+      checkInsideFolder('image', path, { el });
       const probe = new Image();
       probe.onload = () => {
         el.style.backgroundImage = `url(${JSON.stringify(path)})`;

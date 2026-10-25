@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presentation Tools</title>
+  <!-- Central list of every helper of CustomPresentations: command-line tools, in-browser helpers,
+       files. Keep it complete: tools/tests/test_tools.py fails if a tools/*.py script is missing here. -->
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --ink: #1a1a1a; --muted: #5f6672; --rule: #e1e4ea;
+      --accent: #1F407A; --code-bg: #eef1f6; --tag: #e7edf8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #14161a; --card: #1c1f24; --ink: #e8eaed; --muted: #a2a9b4; --rule: #2d323a;
+        --accent: #8fb0ea; --code-bg: #262a31; --tag: #253149;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, "Segoe UI", sans-serif; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 28px; margin: 0 0 4px; }
+    h2 { font-size: 19px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--rule); }
+    .lead { color: var(--muted); margin: 0 0 18px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+    nav a { text-decoration: none; color: var(--accent); background: var(--tag); padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .card { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+    .card h3 { margin: 0 0 4px; font-size: 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .card h3 .when { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .card p { margin: 6px 0; }
+    code, pre { font-family: "Fira Code", Consolas, monospace; font-size: 13px; }
+    code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+    pre { background: var(--code-bg); padding: 10px 12px; border-radius: 7px; overflow-x: auto; margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+    ul { margin: 6px 0; padding-left: 20px; }
+    .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; counter-reset: s; margin: 10px 0; }
+    .flow div { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; counter-increment: s; }
+    .flow div::before { content: counter(s) ". "; font-weight: 700; color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Presentation tools</h1>
+  <p class="lead">Every command and helper of CustomPresentations in one place. Commands run from this
+    repository (<code>D:\Code\CustomPresentations</code>) and work on any presentation folder;
+    a presentation folder itself never needs the repository. Details: <code>AUTHORING.md</code> (how to
+    write slides) and <code>SPEC.md</code> (design decisions).</p>
+
+  <nav>
+    <a href="#workflow">Workflow</a><a href="#cli">Command-line tools</a><a href="#browser">In the browser</a>
+    <a href="#keys">Keyboard</a><a href="#console">Console API</a><a href="#files">Files</a><a href="#dev">Repository development</a>
+  </nav>
+
+  <h2 id="workflow">Typical workflow</h2>
+  <div class="flow">
+    <div><code>new.py</code> creates the folder</div>
+    <div>Edit the deck (open it with <code>?dev</code>)</div>
+    <div><code>image_sizes.py</code> after adding images</div>
+    <div><code>check.py</code> after every change</div>
+    <div><code>pack.py</code> makes the zip to submit</div>
+  </div>
+  <p>Old presentation and a newer template? <code>update.py</code> brings it to the newest engine first.</p>
+
+  <h2 id="cli">Command-line tools</h2>
+
+  <div class="card" id="tool-new">
+    <h3>tools/new.py <span class="when">start a presentation</span></h3>
+    <p>Creates a self-contained presentation folder. Asks for folder, file prefix, title, subtitle, presenter,
+      course title/type, semester and — one prompt per animation, empty answer = done — animation names.
+      Empty answers keep the template placeholders.</p>
+    <pre>python tools/new.py "D:\Talks\MyTalk"</pre>
+    <p>Creates <code>MyTalk_presentation.html</code>, one <code>&lt;name&gt;_animations.html</code> per animation
+      (already registered in <code>DECK.animations</code>), <code>images/eth_zurich_aerial.png</code>, and the AI helpers
+      <code>CLAUDE.md</code> + <code>AUTHORING.md</code>. Answers can be piped in, one per line.</p>
+  </div>
+
+  <div class="card" id="tool-check">
+    <h3>tools/check.py <span class="when">after every change</span></h3>
+    <p>Opens the deck headless in Chrome/Edge (offline) and lists everything the <code>?dev</code> view would show,
+      per slide and step: missing images/animations, invalid step attributes, formula errors, files outside the folder, …
+      Also reports <code>&lt;img&gt;</code> tags with missing/wrong <code>width</code>/<code>height</code> and outdated engine versions.</p>
+    <pre>python tools/check.py "D:\Talks\MyTalk"          # folder or deck file
+python tools/check.py "D:\Talks\MyTalk" --json   # machine-readable</pre>
+    <p>Exit code 0 = nothing to fix, 1 = problems, 2 = wrong arguments.</p>
+  </div>
+
+  <div class="card" id="tool-image-sizes">
+    <h3>tools/image_sizes.py <span class="when">after adding or changing images</span></h3>
+    <p>Writes each image's natural pixel size into its <code>&lt;img&gt;</code> tag, so a missing image still keeps its
+      place and shape. Writes a <code>.bak</code> backup.</p>
+    <pre>python tools/image_sizes.py "D:\Talks\MyTalk\MyTalk_presentation.html"
+python tools/image_sizes.py "…_presentation.html" --check   # report only, exit 1 if wrong</pre>
+  </div>
+
+  <div class="card" id="tool-update">
+    <h3>tools/update.py <span class="when">older presentation, newer template</span></h3>
+    <p>Replaces only the generated engine blocks (deck: <code>DECK-ENGINE</code>; animations: <code>ANIM-VENDOR</code>,
+      <code>ANIM-CONTRACT</code>), verifies that nothing else changed, writes <code>.bak</code> backups and refreshes
+      <code>CLAUDE.md</code> / <code>AUTHORING.md</code>. Refuses to downgrade.</p>
+    <pre>python tools/update.py "D:\Talks\MyTalk"
+python tools/update.py "D:\Talks\MyTalk" --dry-run   # only report
+python tools/update.py "D:\Talks\MyTalk" --force     # allow a downgrade</pre>
+  </div>
+
+  <div class="card" id="tool-pack">
+    <h3>tools/pack.py <span class="when">submit</span></h3>
+    <p>Writes <code>&lt;prefix&gt;.zip</code> next to the folder (or into <code>--out</code>) with only the presentation
+      files: deck, animation files, images and anything else in the folder — without <code>CLAUDE.md</code>,
+      <code>AUTHORING.md</code>, <code>*.bak</code>, zips and hidden files. Before zipping, a copy is checked in a temporary
+      folder outside the repository, so the zip is proven to work on its own and offline.</p>
+    <pre>python tools/pack.py "D:\Talks\MyTalk"
+python tools/pack.py "D:\Talks\MyTalk" --out "D:\Submissions"
+python tools/pack.py "D:\Talks\MyTalk" --force   # zip even with problems</pre>
+  </div>
+
+  <h2 id="browser">In the browser</h2>
+  <table>
+    <tr><th>Helper</th><th>What it does</th></tr>
+    <tr><td><code>☰ Slides</code></td><td>Navigator with a live preview of every slide; click to jump (each slide remembers its step).</td></tr>
+    <tr><td><code>▶ Animation</code> / <code>▶ Animations</code></td><td>Opens the animation (one) or a picker (several); <code>◀ Presentation</code> / <code>⇄ Switch</code> while one is open.</td></tr>
+    <tr><td><code>…_presentation.html?dev</code></td><td>Authoring mode: problems listed per slide and step inside ☰ Slides (red button when there are problems, click jumps to the step), deck-wide problems in a red box, a warnings badge bottom-left, and the <code>▦ Components</code> button.</td></tr>
+    <tr><td><code>▦ Components</code> (<code>?dev</code>)</td><td>All built-in components with title, live example and folded HTML (Copy button) — reuse instead of new CSS.</td></tr>
+    <tr><td><code>?preview=&lt;n or id&gt;&amp;step=&lt;k&gt;</code></td><td>Renders one slide (0-based index or slide id) at a step (default: last), no buttons. Used by the thumbnails.</td></tr>
+    <tr><td>Fullscreen (F11)</td><td>Slides use the whole screen; text then has exactly the original sizes on the 1138×711 laptop view.</td></tr>
+  </table>
+
+  <h2 id="keys">Keyboard</h2>
+  <table>
+    <tr><th>Keys</th><th>Action</th></tr>
+    <tr><td>→ ↓ Space PageDown End</td><td>Next step, then next slide</td></tr>
+    <tr><td>← ↑ PageUp Home</td><td>Previous step, then previous slide</td></tr>
+    <tr><td>Esc</td><td>Close the Slides / Components / animation picker panel</td></tr>
+    <tr><td>Arrow keys inside an animation</td><td>Move the presentation; <b>Ctrl/Shift + arrows</b> stay inside the animation</td></tr>
+  </table>
+
+  <h2 id="console">Console API (F12 → Console)</h2>
+  <table>
+    <tr><th>Call</th><th>Result</th></tr>
+    <tr><td><code>Deck.state</code></td><td>Current slide, step (0-based), number of steps, lock/animation state</td></tr>
+    <tr><td><code>Deck.goTo('slide-id' | index, step?)</code></td><td>Jump to a slide (and step)</td></tr>
+    <tr><td><code>Deck.next()</code> / <code>Deck.prev()</code></td><td>One step forward / back</td></tr>
+    <tr><td><code>Deck.warnings</code> / <code>Deck.problems</code></td><td>All problems (with slide index and step)</td></tr>
+    <tr><td><code>Deck.slides</code> / <code>Deck.animations</code></td><td>Slide list; animation instances and their status</td></tr>
+    <tr><td><code>Deck.openAnimation(id)</code> / <code>Deck.closeAnimation()</code></td><td>Open / close an animation overlay</td></tr>
+    <tr><td><code>Deck.version</code></td><td>Engine version of this deck</td></tr>
+  </table>
+
+  <h2 id="files">Files in a presentation folder</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th><th>Submitted</th></tr>
+    <tr><td><code>&lt;prefix&gt;_presentation.html</code></td><td>The deck: slides + engine + fonts + KaTeX, works offline</td><td>yes</td></tr>
+    <tr><td><code>&lt;name&gt;_animations.html</code></td><td>Animations (start from the template, keep its contract block)</td><td>yes</td></tr>
+    <tr><td><code>images/</code></td><td>Every image the deck and animations use</td><td>yes</td></tr>
+    <tr><td><code>CLAUDE.md</code></td><td>Pointer for AI agents: central guide, version rule, commands</td><td>no</td></tr>
+    <tr><td><code>AUTHORING.md</code></td><td>Copy of the guide matching this deck's engine</td><td>no</td></tr>
+    <tr><td><code>*.bak</code></td><td>Backups written by update.py / image_sizes.py</td><td>no</td></tr>
+  </table>
+
+  <h2 id="dev">Repository development</h2>
+  <div class="card" id="tool-build">
+    <h3>tools/build.py <span class="when">after changing engine/</span></h3>
+    <p>Generates <code>template/</code>, <code>examples/*/…_presentation.html</code> and <code>AUTHORING.md</code> from the engine
+      sources. <code>--check</code> exits 1 if anything generated is stale.</p>
+    <pre>python tools/build.py
+python tools/build.py --check</pre>
+  </div>
+  <div class="card" id="tool-fetch-vendor">
+    <h3>tools/fetch_vendor.py <span class="when">changing a font or KaTeX version</span></h3>
+    <p>Downloads the pinned fonts and KaTeX listed in <code>engine/vendor/manifest.json</code> and writes the hash lock;
+      <code>--verify</code> checks the vendored files offline.</p>
+    <pre>python tools/fetch_vendor.py
+python tools/fetch_vendor.py --verify</pre>
+  </div>
+  <div class="card" id="tool-tests">
+    <h3>Tests <span class="when">after every engine or tool change</span></h3>
+    <p>Build and engine tests; the engine tests run fixture decks in headless Chrome/Edge (skipped without a browser).</p>
+    <pre>python -m unittest discover tools/tests</pre>
+  </div>
+</main>
+</body>
+</html>

@@ -78,12 +78,14 @@ MyTalk/
 ├── MyTalk_presentation.html        ← the deck (stand‑alone, offline)
 ├── MyTalk_animations.html          ← 0…n animation files, any prefix
 ├── Extra_animations.html
-└── images/
-    ├── eth_zurich_aerial.png       ← cover background (copied from template)
-    └── …
+├── images/
+│   ├── eth_zurich_aerial.png       ← cover background (copied from template)
+│   └── …
+├── CLAUDE.md                       ← AI pointer (managed block): central guide, version rule, commands — not submitted
+└── AUTHORING.md                    ← copy of the guide matching this deck's engine — not submitted
 ```
 - `<prefix>` is free text chosen by the user. The engine never derives names from it; animation files are referenced by their exact file name in the config.
-- The deck only resolves relative paths: `images/<file>` and `<animation file>` next to the deck.
+- **Self-contained (decision R12‑3):** a presentation folder never depends on this repository; it can be copied, zipped and submitted. The deck only resolves relative paths inside the folder (`images/<file>`, animation files next to the deck); the engine warns about absolute paths, URLs and `..`. The repository's tools only *act on* folders (create, check, update, pack).
 
 ### 4.2 This repository (where the template is developed)
 ```
@@ -511,11 +513,17 @@ All components live in `@layer components` (`engine/components.css`), use the de
 
 | Tool | Purpose |
 |---|---|
-| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` with the engine and contract blocks inlined between markers, stamped with the engine version; also builds every `examples/*/<name>_presentation.src.html` into `<name>_presentation.html` (`--check` covers both). |
-| `tools/update.py <deck.html>` | Replaces the `ENGINE` block (and in animation files the `ANIM-CONTRACT` block) with the current template's version. Writes a `.bak`, prints the old → new version, never touches the user zone. Refuses if markers are missing or duplicated. |
-| `tools/image_sizes.py <deck.html> [--check]` | For every `<img src>` inside `<main id="deck">` (never the engine block, comments, `<script>`/`<style>`), reads the natural pixel size of the file next to the deck (PNG, JPEG incl. EXIF orientation, GIF, WebP, SVG; format detected by content, not extension) and inserts or corrects `width`/`height` in place. Minimal text edits, line endings kept, `.bak` before writing. Prints updated / already correct / file missing / unreadable; missing and unreadable files are left unchanged. `--check` writes nothing and exits 1 if anything would change. |
-| `tools/new.py <folder> <prefix> [--anim <animprefix>]` | Copies the template into a new folder, renames files to `<prefix>_presentation.html` / `<animprefix>_animations.html`, copies `images/eth_zurich_aerial.png`. |
-| (later) `tools/lint.py <deck.html>` | Static checks: unknown animation ids, step gaps, slide order, missing titles (image size attributes: `image_sizes.py --check`). |
+| `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` (engine and contract blocks inlined between markers, stamped with the engine version), every `examples/*/<name>_presentation.html` from its `.src.html`, and `AUTHORING.md` from `engine/AUTHORING.src.md` + the component catalog. `--check` covers all of them. |
+| `tools/new.py [folder]` | **Interactive** (R12‑4): asks for folder, prefix, title, subtitle, presenter, course title/type, semester, then animation names one per prompt (empty = done). Writes the filled deck, one `<name>_animations.html` per animation (registered in `DECK.animations`), the cover image, and the AI helpers `CLAUDE.md` + `AUTHORING.md`. Answers can be piped in. |
+| `tools/check.py <deck or folder> [--json]` | Runs each deck headless (offline) and prints every problem per slide and step (= the `?dev` view), `<img>` tags with missing/wrong sizes, and outdated engine/contract versions. Exit 1 if anything needs fixing (R12‑1). |
+| `tools/update.py <deck or folder> [--dry-run] [--force]` | Replaces the `DECK-ENGINE` block (decks) and `ANIM-VENDOR` + `ANIM-CONTRACT` blocks (animation files), verifies that everything outside the blocks is byte-identical, writes `.bak` backups, refreshes `CLAUDE.md` (managed block only) and `AUTHORING.md`. Refuses downgrades without `--force`. |
+| `tools/pack.py <folder> [--out DIR] [--force] [--no-check]` | Writes `<prefix>.zip` (top folder `<prefix>/`) with all presentation files but without `CLAUDE.md`, `AUTHORING.md`, `*.bak`, zips and hidden files; first checks a copy in a temporary folder outside the repository, so the zip is proven self-contained (R12‑5). |
+| `tools/image_sizes.py <deck> [--check]` | Writes the natural image sizes into `<img width height>` (separate session, D‑12). |
+| `tools/fetch_vendor.py [--verify]` | Downloads / verifies the pinned fonts and KaTeX. |
+
+`TOOLS.html` (repository root) documents every command and in-browser helper in one page; a test fails if a tool is missing there (R12‑6). Helpers shared by the tools: `_blocks.py` (markers), `_browser.py` (headless runs), `_deckfolder.py` (decks, versions, AI helper files).
+
+**Versioning and compatibility (R12‑2):** the engine follows semver (`engine/VERSION`, now **1.0.0**). Within 1.x, updates never change the meaning of existing attributes, classes or `DECK` fields, so `update.py` is always safe; a breaking change requires 2.0 plus migration notes in `AUTHORING.md`. Each deck carries its own engine version; the central `AUTHORING.md` states the version it describes, and the folder's `CLAUDE.md` tells AI agents to update an older deck before editing it.
 
 Implementation language: **Python 3, standard library only** (decision R2‑4), e.g. `python tools/update.py MyTalk/MyTalk_presentation.html`. Engine versioning: semver in the marker. A deck built with engine 1.x must keep working with any 1.y (attribute/config names are the public API).
 
@@ -560,7 +568,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 | **P3 Assets** ✅ done | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
 | **P4 Animations** ✅ done | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
 | **P5 Look & components** ✅ done | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
-| **P6 Template + tooling + docs** | `template_presentation.html` (title, TOC, **3 empty content slides**, black slide, 1 appendix example), `template_animations.html`, `tools/build/update/new`, `AUTHORING.md`, `CLAUDE.md`. | `tools/new` → working deck in < 1 min; `tools/update` upgrades a deck without touching the user zone. |
+| **P6 Template + tooling + docs** ✅ done | `template_presentation.html` (title, TOC, **3 empty content slides**, black slide, 1 appendix example), `template_animations.html`, `tools/build/update/new`, `AUTHORING.md`, `CLAUDE.md`. | `tools/new` → working deck in < 1 min; `tools/update` upgrades a deck without touching the user zone. |
 | **P7 Validation port** | Port the EfficientNet deck + animation to the template as `examples/EfficientNet/`. | All 20 original slides reproduced with no per‑slide JS except the timeline hook. |
 
 ---
@@ -630,3 +638,9 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R11‑2 | The showcase deck lives in `examples/components/` and rebuilds the EfficientNet content slides with the components. | Round 11 |
 | R11‑3 | Python code blocks are coloured automatically (`data-lang="python"`); hand-coloured blocks and other languages use the token classes. | Round 11 |
 | D‑14 | Parity fixes: timeline image `width:0; min-width:100%` (as wide as the name, no JS); data tables line-height 1.2 (compact 1.35). | P5 |
+| R12‑1 | `tools/check.py` reports the `?dev` problems from the command line (exit 1 if any). | Round 12 |
+| R12‑2 | Central guide + per-folder pointer (`CLAUDE.md`) + frozen `AUTHORING.md` copy; semver compatibility promise; engine 1.0.0. | Round 12 |
+| R12‑3 | Presentation folders are self-contained (zip + submit); the engine warns about paths outside the folder. | Round 12 |
+| R12‑4 | `tools/new.py` is interactive, including animation names (one prompt each, empty = done). | Round 12 |
+| R12‑5 | `tools/pack.py` builds the submission zip without AI helpers, verified in a temp folder outside the repo. | Round 12 |
+| R12‑6 | `TOOLS.html` is the central list of all commands and helpers. | Round 12 |
