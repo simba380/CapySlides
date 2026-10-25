@@ -16,6 +16,7 @@ Single-file, offline HTML presentation template. **SPEC.md is the source of trut
 - Marker blocks (`DECK-ENGINE`, `ANIM-VENDOR`, `ANIM-CONTRACT`, see `tools/_blocks.py`) are a stable public contract. Don't change their format.
 - Built files contain ~1 MB base64 lines inside the marker blocks. Don't read past a `:BEGIN` marker; read the sources in `engine/` instead.
 - Tooling: Python 3 standard library only.
+- Every `<img>` in a deck needs `width`/`height` = the image's natural size (SPEC §10.2). After adding or changing images, run `python tools/image_sizes.py path/to/X_presentation.html` (writes a `.bak`); `--check` only reports and exits 1 if any are missing or wrong.
 - `docs/example_presentation_EfficientNet/` is the untouched visual/behavioural reference.
 
 ## Authoring decks
