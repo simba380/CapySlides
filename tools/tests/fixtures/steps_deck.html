@@ -31,9 +31,16 @@
 
     <section data-type="content" id="basic">
       <h2 class="slide-title">Basic steps</h2>
-      <p id="b1">Always visible (step 1)</p>
+      <p id="b1">Unmarked: implicit step 2</p>
       <p id="b2" data-step="2">From step 2</p>
       <p id="b3" data-step="3">From step 3</p>
+      <p id="b-static" data-step="1">Explicit step 1: visible from the start</p>
+      <ul id="b-list">
+        <li id="b-li-plain">Unmarked item in a container with stepped items: step 2</li>
+        <li id="b-li-one" data-step="1">Explicit step 1 inside an unmarked container</li>
+        <li id="b-li-three" data-step="3">Step 3</li>
+      </ul>
+      <p id="b-gone" data-step="1..2">Shown in steps 1-2, removed at step 3</p>
     </section>
 
     <section data-type="content" id="ranges">

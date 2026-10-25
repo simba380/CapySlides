@@ -1,26 +1,32 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
-   Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §12.2–12.4 TOC/black/footer.
-   Later phases plug in here: P2 title slide, top buttons, navigator, preview mode; P3 assets;
-   P4 animations; P5 math escaping + components. */
+   Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
+   §12.2–12.4 TOC/black/footer, §12.7 dev problems panel.
+   Later phases plug in here: P2 title slide, ☰ Slides navigator; P3 assets; P4 animations;
+   P5 math escaping + components. */
 (() => {
   'use strict';
 
   const VERSION = '__ENGINE_VERSION__';
   const PARAMS = new URLSearchParams(location.search);
-  const DEV = PARAMS.has('dev');
+  const PREVIEW = PARAMS.has('preview');   // thumbnail rendering inside an iframe (SPEC §11)
+  const DEV = PARAMS.has('dev') && !PREVIEW;
 
   const SLIDE_TYPES = ['title', 'toc', 'content', 'animation', 'black'];
   const FRAMED_TYPES = ['toc', 'content', 'animation'];
+  const IMPLICIT_STEP_TYPES = ['toc', 'content'];   // unmarked content appears at step 2 (R5-1)
   const LAYOUTS = ['full', 'center'];
   const STEP_FX = ['rise', 'fade', 'slide-left', 'none'];
   const FORWARD_KEYS = new Set(['ArrowRight', 'ArrowDown', ' ', 'Spacebar', 'PageDown', 'End']);
   const BACK_KEYS = new Set(['ArrowLeft', 'ArrowUp', 'PageUp', 'Home']);
+  const NOT_CONTENT = new Set(['SCRIPT', 'STYLE', 'TEMPLATE']);
   const MATH_DELIMITERS = [
     { left: '$$', right: '$$', display: true },
     { left: '\\[', right: '\\]', display: true },
     { left: '$',  right: '$',  display: false },
     { left: '\\(', right: '\\)', display: false },
   ];
+  const THUMB_WIDTH = 126;   // navigator/problem-panel thumbnails (original 112px x 1.125)
+  const ICON_BOLT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4.5 13.5h6.5L9.5 22l10-12.5H13L13.5 2z" fill="currentColor"/></svg>';
 
   const DEFAULTS = {
     title: '',
@@ -35,16 +41,30 @@
     hooks: {},
   };
 
-  // ── Warnings ──────────────────────────────────────────────────────────────
-  // Authoring problems never stop the deck. They go to the console, and with ?dev
-  // they are also listed in a badge (SPEC §7, decision R4-1).
+  let cfg, slides = [], sectionEls = [], viewport, stage, topbar;
+  const state = { current: -1, locked: false, scale: 1 };
 
-  const warnings = [];
+  // ── Problems / warnings ───────────────────────────────────────────────────
+  // Authoring problems never stop the deck. Each one is logged to the console and kept
+  // with the slide it belongs to; with ?dev they are listed in the badge and the ⚡ panel.
 
-  function warn(message, el) {
+  const problems = [];   // { message, slide: index | null }
+  const warnings = [];   // messages only (public, Deck.warnings)
+
+  function slideIndexOf(el) {
+    const section = el && el.closest ? el.closest('#deck > section') : null;
+    const i = sectionEls.indexOf(section);
+    return i >= 0 ? i : null;
+  }
+
+  /** warn(message, { slide?: index, el?: element }) */
+  function warn(message, where = {}) {
+    const slide = where.slide !== undefined ? where.slide : slideIndexOf(where.el);
+    problems.push({ message, slide: slide === undefined ? null : slide });
     warnings.push(message);
-    if (el) console.warn('[deck] ' + message, el);
+    if (where.el) console.warn('[deck] ' + message, where.el);
     else console.warn('[deck] ' + message);
+    refreshDevUi();
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
@@ -52,39 +72,37 @@
   function readConfig() {
     // `const DECK` in the user zone is a global lexical binding, not a window property.
     const user = typeof DECK !== 'undefined' ? DECK : undefined;  // eslint-disable-line no-undef
-    if (!user || typeof user !== 'object') {
-      warn('no DECK config object found; using defaults');
-    }
+    if (!user || typeof user !== 'object') warn('no DECK config object found; using defaults');
     const u = user && typeof user === 'object' ? user : {};
-    const cfg = {
+    const c = {
       ...DEFAULTS, ...u,
       course: { ...DEFAULTS.course, ...(u.course || {}) },
       cover:  { ...DEFAULTS.cover,  ...(u.cover  || {}) },
       canvas: { ...DEFAULTS.canvas, ...(u.canvas || {}) },
     };
 
-    const { width, height } = cfg.canvas;
+    const { width, height } = c.canvas;
     if (!(width > 0 && height > 0 && isFinite(width) && isFinite(height))) {
       warn(`DECK.canvas must be { width, height } with positive numbers; using ${DEFAULTS.canvas.width}x${DEFAULTS.canvas.height}`);
-      cfg.canvas = { ...DEFAULTS.canvas };
+      c.canvas = { ...DEFAULTS.canvas };
     }
-    if (!Array.isArray(cfg.toc)) {
+    if (!Array.isArray(c.toc)) {
       warn('DECK.toc must be an array of strings or { text, sub: [...] } objects');
-      cfg.toc = [];
+      c.toc = [];
     }
-    if (!cfg.hooks || typeof cfg.hooks !== 'object') {
+    if (!c.hooks || typeof c.hooks !== 'object') {
       warn('DECK.hooks must be an object mapping slide ids to functions');
-      cfg.hooks = {};
+      c.hooks = {};
     }
-    for (const [id, fn] of Object.entries(cfg.hooks)) {
+    for (const [id, fn] of Object.entries(c.hooks)) {
       if (typeof fn !== 'function') warn(`DECK.hooks["${id}"] is not a function`);
     }
-    if (typeof cfg.date !== 'string' || !cfg.date.trim()) {
+    if (typeof c.date !== 'string' || !c.date.trim()) {
       warn("DECK.date must be 'auto' or a date string; using 'auto'");
-      cfg.date = 'auto';
+      c.date = 'auto';
     }
-    if (!String(cfg.title).trim()) warn('DECK.title is empty');
-    return cfg;
+    if (!String(c.title).trim()) warn('DECK.title is empty');
+    return c;
   }
 
   // ── Small DOM helpers ─────────────────────────────────────────────────────
@@ -102,9 +120,6 @@
   }
 
   // ── Viewport / canvas (SPEC §6) ───────────────────────────────────────────
-
-  let cfg, slides = [], viewport, stage;
-  const state = { current: -1, locked: false, scale: 1 };
 
   function buildCanvas(deckEl) {
     viewport = h('div');
@@ -149,23 +164,40 @@
     return step >= range[0] && step <= range[1];
   }
 
+  /** Step 1 shows only the slide title (R5-1): every unmarked content subtree becomes a step-2
+      layer. A container that holds explicitly stepped elements stays structural and the rule
+      continues inside it, so `data-step="1"` anywhere still means "visible from the start". */
+  function applyImplicitSteps(container) {
+    for (const child of container.children) {
+      if (NOT_CONTENT.has(child.tagName) || child.classList.contains('slide-title')) continue;
+      if (child.hasAttribute('data-step')) continue;
+      if (child.querySelector('[data-step]')) applyImplicitSteps(child);
+      else {
+        child.setAttribute('data-step', '2');
+        child.setAttribute('data-step-implicit', '');
+      }
+    }
+  }
+
   function parseSteps(slide) {
     const { el } = slide;
     const where = `slide ${slide.index + 1} ("${slide.id}")`;
+    const at = extra => ({ slide: slide.index, ...extra });
     let highest = 1;
     const note = range => { highest = Math.max(highest, range[0], isFinite(range[1]) ? range[1] : 0); };
 
-    if (el.querySelector('section')) warn(`${where}: nested <section> elements are not supported`);
+    if (el.querySelector('section')) warn(`${where}: nested <section> elements are not supported`, at());
+    if (IMPLICIT_STEP_TYPES.includes(slide.type)) applyImplicitSteps(el.querySelector('.slide-content') || el);
 
     for (const layer of el.querySelectorAll('[data-step]')) {
       const range = parseRange(layer.dataset.step);
       if (!range) {
-        warn(`${where}: invalid data-step="${layer.dataset.step}" (use "3", "2..4" or "3..3"); element stays visible`, layer);
+        warn(`${where}: invalid data-step="${layer.dataset.step}" (use "3", "2..4" or "3..3"); element stays visible`, at({ el: layer }));
         continue;
       }
       let fx = layer.dataset.stepFx || 'rise';
       if (!STEP_FX.includes(fx)) {
-        warn(`${where}: unknown data-step-fx="${fx}" (use ${STEP_FX.join(', ')}); using rise`, layer);
+        warn(`${where}: unknown data-step-fx="${fx}" (use ${STEP_FX.join(', ')}); using rise`, at({ el: layer }));
         fx = 'rise';
       }
       layer.classList.add('step-layer', 'fx-' + fx);
@@ -179,7 +211,7 @@
         const cls = cut > 0 ? rule.slice(0, cut) : '';
         const range = cut > 0 ? parseRange(rule.slice(cut + 1)) : null;
         if (!cls || !range) {
-          warn(`${where}: invalid data-step-class rule "${rule}" (use "class:3" or "class:2..4")`, target);
+          warn(`${where}: invalid data-step-class rule "${rule}" (use "class:3" or "class:2..4")`, at({ el: target }));
           continue;
         }
         slide.classRules.push({ el: target, cls, range });
@@ -191,9 +223,9 @@
     if (el.dataset.steps !== undefined) {
       const declared = Number(el.dataset.steps);
       if (!Number.isInteger(declared) || declared < 1) {
-        warn(`${where}: invalid data-steps="${el.dataset.steps}" (positive integer expected)`);
+        warn(`${where}: invalid data-steps="${el.dataset.steps}" (positive integer expected)`, at());
       } else {
-        if (declared < highest) warn(`${where}: data-steps="${declared}" is lower than the highest step used (${highest})`);
+        if (declared < highest) warn(`${where}: data-steps="${declared}" is lower than the highest step used (${highest})`, at());
         N = Math.max(declared, highest);
       }
     }
@@ -218,26 +250,27 @@
     const layout = el.dataset.layout;
     if (layout) {
       if (LAYOUTS.includes(layout)) content.classList.add('layout-' + layout);
-      else warn(`slide ${slide.index + 1} ("${slide.id}"): unknown data-layout="${layout}" (use ${LAYOUTS.join(', ')})`);
+      else warn(`slide ${slide.index + 1} ("${slide.id}"): unknown data-layout="${layout}" (use ${LAYOUTS.join(', ')})`, { slide: slide.index });
     }
     while (el.firstChild) content.appendChild(el.firstChild);
     el.append(content, buildFooter(slide.label));
   }
 
-  function renderToc(el) {
+  function renderToc(slide) {
+    const { el } = slide;
     el.appendChild(h('h2', 'slide-title', 'Table of Contents'));
     const list = h('ol', 'toc-list');
     cfg.toc.forEach((entry, i) => {
       const item = typeof entry === 'string' ? { text: entry } : entry;
       if (!item || typeof item.text !== 'string') {
-        warn(`DECK.toc[${i}] must be a string or { text, sub: [...] }`);
+        warn(`DECK.toc[${i}] must be a string or { text, sub: [...] }`, { slide: slide.index });
         return;
       }
       const li = h('li', 'toc-item');
       const body = h('div', 'toc-body');
       body.appendChild(h('div', 'toc-text', item.text));
       if (item.sub !== undefined) {
-        if (!Array.isArray(item.sub)) warn(`DECK.toc[${i}].sub must be an array of strings`);
+        if (!Array.isArray(item.sub)) warn(`DECK.toc[${i}].sub must be an array of strings`, { slide: slide.index });
         else {
           const sub = h('ul', 'toc-sub');
           item.sub.forEach(s => sub.appendChild(h('li', '', String(s))));
@@ -270,41 +303,42 @@
     if (slide.el.dataset.title) return slide.el.dataset.title;
     if (slide.type === 'title') return String(cfg.title);
     if (slide.type === 'black') return 'End';
-    warn(`slide ${slide.index + 1} ("${slide.id}") has no title (add <h2 class="slide-title"> or data-title)`);
+    warn(`slide ${slide.index + 1} ("${slide.id}") has no title (add <h2 class="slide-title"> or data-title)`, { slide: slide.index });
     return `Slide ${slide.label || slide.index + 1}`;
   }
 
   function validateOrder() {
     const count = t => slides.filter(s => s.type === t).length;
+    const first = t => { const s = slides.find(x => x.type === t); return s ? s.index : null; };
     if (count('title') !== 1) warn(`expected exactly one title slide, found ${count('title')}`);
-    else if (slides[0].type !== 'title') warn('the title slide must be the first slide');
+    else if (slides[0].type !== 'title') warn('the title slide must be the first slide', { slide: first('title') });
     if (count('toc') !== 1) warn(`expected exactly one toc slide, found ${count('toc')}`);
-    else if (!slides[1] || slides[1].type !== 'toc') warn('the toc slide must be the second slide');
+    else if (!slides[1] || slides[1].type !== 'toc') warn('the toc slide must be the second slide', { slide: first('toc') });
     if (count('black') === 0) warn('no black slide: there is no end marker and no appendix');
     if (count('black') > 1) warn(`found ${count('black')} black slides; only the first one starts the appendix`);
     for (const s of slides) {
       if (s.zone === 'appendix' && (s.type === 'title' || s.type === 'toc')) {
-        warn(`slide ${s.index + 1}: a ${s.type} slide cannot be in the appendix`);
+        warn(`slide ${s.index + 1}: a ${s.type} slide cannot be in the appendix`, { slide: s.index });
       }
     }
   }
 
   function parseSlides(deckEl) {
     for (const child of deckEl.children) {
-      if (child.tagName !== 'SECTION') warn(`<${child.tagName.toLowerCase()}> directly inside #deck is ignored; slides must be <section> elements`, child);
+      if (child.tagName !== 'SECTION') warn(`<${child.tagName.toLowerCase()}> directly inside #deck is ignored; slides must be <section> elements`, { el: child });
     }
-    const sections = [...deckEl.children].filter(el => el.tagName === 'SECTION');
+    sectionEls = [...deckEl.children].filter(el => el.tagName === 'SECTION');
     const ids = new Set();
     let zone = 'main', mainCount = 0, appendixCount = 0, seenBlack = false;
 
-    slides = sections.map((el, index) => {
+    slides = sectionEls.map((el, index) => {
       let type = el.dataset.type;
       if (!SLIDE_TYPES.includes(type)) {
-        warn(`slide ${index + 1}: unknown data-type="${type ?? ''}" (use ${SLIDE_TYPES.join(', ')}); treated as content`, el);
+        warn(`slide ${index + 1}: unknown data-type="${type ?? ''}" (use ${SLIDE_TYPES.join(', ')}); treated as content`, { slide: index, el });
         type = 'content';
       }
       if (!el.id) el.id = `slide-${index + 1}`;
-      if (ids.has(el.id)) warn(`duplicate slide id "${el.id}"`, el);
+      if (ids.has(el.id)) warn(`duplicate slide id "${el.id}"`, { slide: index, el });
       ids.add(el.id);
 
       let label = '';
@@ -334,9 +368,9 @@
       const { el, type } = slide;
       const empty = el.children.length === 0;
       if (type === 'title' && empty) renderTitleStub(el);
-      if (type === 'toc' && empty) renderToc(el);
+      if (type === 'toc' && empty) renderToc(slide);
       if (type === 'animation') renderAnimationStub(slide);
-      if (type === 'black' && !empty) warn(`slide ${slide.index + 1}: the black slide should be empty; its content is hidden`);
+      if (type === 'black' && !empty) warn(`slide ${slide.index + 1}: the black slide should be empty; its content is hidden`, { slide: slide.index });
       if (FRAMED_TYPES.includes(type)) wrapContent(slide);
       slide.title = slideTitle(slide);
       parseSteps(slide);
@@ -356,9 +390,9 @@
     const hook = cfg.hooks[slide.id];
     if (typeof hook === 'function') {
       try {
-        hook(step, slide.el, { preview: false, first: !slide.rendered, N: slide.N });
+        hook(step, slide.el, { preview: PREVIEW, first: !slide.rendered, N: slide.N });
       } catch (err) {
-        warn(`DECK.hooks["${slide.id}"] threw: ${err && err.message ? err.message : err}`);
+        warn(`DECK.hooks["${slide.id}"] threw: ${err && err.message ? err.message : err}`, { slide: slide.index });
       }
     }
     slide.rendered = true;
@@ -380,6 +414,7 @@
     slide.el.inert = false;
     renderSlide(slide);
     updateLetterbox();
+    refreshPanels();
   }
 
   function next() {
@@ -398,9 +433,19 @@
     return false;
   }
 
+  function resolveIndex(target) {
+    if (typeof target === 'string') {
+      const byId = slides.findIndex(s => s.id === target);
+      if (byId >= 0) return byId;
+      if (/^\d+$/.test(target)) return Number(target);
+      return -1;
+    }
+    return target;
+  }
+
   /** Jump to a slide by 0-based index or by id; optionally set its step (clamped to 1…N). */
   function goTo(target, step) {
-    const index = typeof target === 'string' ? slides.findIndex(s => s.id === target) : target;
+    const index = resolveIndex(target);
     if (!Number.isInteger(index) || index < 0 || index >= slides.length) {
       warn(`Deck.goTo: no slide ${JSON.stringify(target)}`);
       return false;
@@ -414,6 +459,184 @@
     return true;
   }
 
+  // ── Overlays (shared by the ⚡ problems panel and, from P2 on, ☰ Slides) ──
+  // One overlay is open at a time. While open, forward/back are ignored (SPEC §8.4).
+
+  const overlays = [];
+  let openOverlay = null;
+
+  function createOverlay(id, heading, onOpen) {
+    const overlay = h('div', 'deck-overlay');
+    overlay.id = id;
+    const panel = h('div', 'deck-panel');
+    const list = h('div', 'deck-panel-list');
+    panel.append(h('h3', 'deck-panel-title', heading), list);
+    overlay.appendChild(panel);
+    const o = { id, overlay, panel, list, onOpen };
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(o); });
+    stage.appendChild(overlay);
+    overlays.push(o);
+    return o;
+  }
+
+  function openOverlayPanel(o) {
+    if (openOverlay && openOverlay !== o) closeOverlay(openOverlay);
+    if (o.onOpen) o.onOpen(o);
+    o.overlay.classList.add('open');
+    openOverlay = o;
+    state.locked = true;
+  }
+
+  function closeOverlay(o) {
+    o.overlay.classList.remove('open');
+    if (openOverlay === o) { openOverlay = null; state.locked = false; }
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  }
+
+  function toggleOverlay(o) {
+    if (openOverlay === o) closeOverlay(o); else openOverlayPanel(o);
+  }
+
+  function refreshPanels() {
+    for (const o of overlays) {
+      for (const row of o.list.querySelectorAll('.deck-row[data-slide]')) {
+        row.classList.toggle('is-current', Number(row.dataset.slide) === state.current);
+      }
+    }
+  }
+
+  // ── Thumbnails (SPEC §11): iframes of this deck in ?preview mode, loaded one by one ──
+
+  const thumbCache = new Map();
+  const thumbQueue = [];
+  let thumbLoading = false;
+
+  function previewUrl(index) {
+    return location.href.split(/[?#]/)[0] + '?preview=' + index;
+  }
+
+  function pumpThumbs() {
+    if (thumbLoading) return;
+    const frame = thumbQueue.shift();
+    if (!frame) return;
+    thumbLoading = true;
+    const done = () => { thumbLoading = false; pumpThumbs(); };
+    frame.addEventListener('load', done, { once: true });
+    frame.src = frame.dataset.src;
+  }
+
+  function thumbnail(index) {
+    if (thumbCache.has(index)) return thumbCache.get(index);
+    const { width: W, height: H } = cfg.canvas;
+    const box = h('div', 'deck-thumb');
+    box.style.width = THUMB_WIDTH + 'px';
+    box.style.height = (THUMB_WIDTH * H / W) + 'px';
+    const frame = document.createElement('iframe');
+    frame.tabIndex = -1;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.width = W + 'px';
+    frame.style.height = H + 'px';
+    frame.style.transform = `scale(${THUMB_WIDTH / W})`;
+    frame.dataset.src = previewUrl(index);
+    box.appendChild(frame);
+    thumbCache.set(index, box);
+    thumbQueue.push(frame);
+    pumpThumbs();
+    return box;
+  }
+
+  function slideNumberText(slide) {
+    if (slide.type === 'black') return '–';
+    return slide.zone === 'appendix' ? slide.label : `Slide ${slide.label}`;
+  }
+
+  // ── Dev mode: ⚡ problems panel + badge (SPEC §12.7, decisions R4-1, R5-2…R5-4) ──
+
+  let devButton = null, devPanel = null, badge = null;
+
+  function buildTopbar() {
+    topbar = h('div');
+    topbar.id = 'deck-topbar';
+    stage.appendChild(topbar);
+  }
+
+  function buildDevUi() {
+    devPanel = createOverlay('dev-overlay', 'Deck problems', renderDevPanel);
+    devButton = h('button', 'top-btn top-btn--icon');
+    devButton.id = 'dev-btn';
+    devButton.type = 'button';
+    devButton.setAttribute('aria-label', 'Deck problems');
+    devButton.innerHTML = ICON_BOLT;
+    devButton.addEventListener('click', () => toggleOverlay(devPanel));
+    topbar.prepend(devButton);   // leftmost: [⚡] [▶ Animation] [☰ Slides]
+
+    badge = h('div');
+    badge.id = 'deck-warnings';
+    const toggle = h('button', 'dw-toggle');
+    const close = h('button', 'dw-close', '×');
+    close.title = 'Hide (reload to show again)';
+    toggle.addEventListener('click', () => badge.classList.toggle('open'));
+    close.addEventListener('click', () => badge.remove());
+    badge.append(toggle, close, h('ol', 'dw-list'));
+    document.body.appendChild(badge);
+    refreshDevUi();
+  }
+
+  function refreshDevUi() {
+    if (!devButton) return;
+    const n = warnings.length;
+    devButton.classList.toggle('has-problems', n > 0);
+    badge.className = (n ? 'has-warnings' : 'no-warnings') + (badge.classList.contains('open') ? ' open' : '');
+    badge.querySelector('.dw-toggle').textContent = n ? `⚠ ${n} deck warning${n === 1 ? '' : 's'}` : '✓ no deck warnings';
+    badge.querySelector('.dw-list').replaceChildren(...warnings.map(w => h('li', '', w)));
+    if (openOverlay === devPanel) renderDevPanel();
+  }
+
+  function renderDevPanel() {
+    const scroll = devPanel.panel.scrollTop;
+    const groups = new Map();
+    for (const p of problems) {
+      const key = p.slide === null ? 'deck' : p.slide;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p.message);
+    }
+    const rows = [];
+    if (!problems.length) rows.push(h('div', 'deck-panel-empty', 'No problems found.'));
+    if (groups.has('deck')) {
+      const row = h('div', 'deck-row deck-row--deck');
+      const icon = h('div', 'deck-thumb deck-thumb--deck');
+      icon.style.width = THUMB_WIDTH + 'px';
+      icon.style.height = (THUMB_WIDTH * cfg.canvas.height / cfg.canvas.width) + 'px';
+      icon.innerHTML = ICON_BOLT;
+      row.append(icon, rowInfo('Deck', 'Configuration and structure', groups.get('deck')));
+      rows.push(row);
+    }
+    const slideKeys = [...groups.keys()].filter(k => k !== 'deck').sort((a, b) => a - b);
+    for (const index of slideKeys) {
+      const slide = slides[index];
+      const row = h('div', 'deck-row');
+      row.dataset.slide = index;
+      row.classList.toggle('is-current', index === state.current);
+      row.append(thumbnail(index), rowInfo(slide ? slideNumberText(slide) : `Slide ${index + 1}`,
+                                           slide ? slide.title : '', groups.get(index)));
+      row.addEventListener('click', () => {
+        closeOverlay(devPanel);
+        if (slide) goTo(index, slide.N);   // final step: where every layer is in place
+      });
+      rows.push(row);
+    }
+    devPanel.list.replaceChildren(...rows);
+    devPanel.panel.scrollTop = scroll;
+  }
+
+  function rowInfo(num, label, messages) {
+    const info = h('div', 'row-info');
+    const list = h('ul', 'row-problems');
+    messages.forEach(m => list.appendChild(h('li', '', m)));
+    info.append(h('div', 'row-num', num), h('div', 'row-label', label), list);
+    return info;
+  }
+
   // ── Input (SPEC §8.4, decision R4-4) ──────────────────────────────────────
 
   function isEditable(target) {
@@ -423,6 +646,11 @@
 
   function onKeyDown(e) {
     if (e.defaultPrevented || e.altKey || e.metaKey || isEditable(e.target)) return;
+    if (e.key === 'Escape' && openOverlay) {
+      e.preventDefault();
+      closeOverlay(openOverlay);
+      return;
+    }
     const forward = FORWARD_KEYS.has(e.key);
     if (!forward && !BACK_KEYS.has(e.key)) return;
     e.preventDefault();
@@ -444,47 +672,31 @@
 
   // ── Math ──────────────────────────────────────────────────────────────────
 
-  function renderMath(root) {
+  function renderMath() {
     if (typeof window.renderMathInElement !== 'function') {
       warn('KaTeX auto-render is not available; formulas stay as source text');
       return;
     }
-    // With throwOnError:false KaTeX shows unknown commands in red instead of failing, so
-    // problems are detected separately: a formula that parses in neither mode is reported.
-    const check = math => {
-      let error;
-      for (const displayMode of [false, true]) {
-        try { window.katex.renderToString(math, { displayMode, throwOnError: true }); return math; }
-        catch (err) { error = err; }
-      }
-      warn(`formula error in "${math}": ${error && error.message ? error.message : error}`);
-      return math;
-    };
-    window.renderMathInElement(root, {
-      delimiters: MATH_DELIMITERS,
-      throwOnError: false,
-      preProcess: check,
-      errorCallback: (message, err) => warn(`formula error: ${message} ${err || ''}`.trim()),
-    });
-  }
-
-  // ── Dev badge (decision R4-1) ─────────────────────────────────────────────
-
-  function renderBadge() {
-    const badge = h('div');
-    badge.id = 'deck-warnings';
-    badge.className = warnings.length ? 'has-warnings' : 'no-warnings';
-    const toggle = h('button', 'dw-toggle', warnings.length
-      ? `⚠ ${warnings.length} deck warning${warnings.length === 1 ? '' : 's'}`
-      : '✓ no deck warnings');
-    const close = h('button', 'dw-close', '×');
-    close.title = 'Hide (reload to show again)';
-    const list = h('ol', 'dw-list');
-    warnings.forEach(w => list.appendChild(h('li', '', w)));
-    toggle.addEventListener('click', () => badge.classList.toggle('open'));
-    close.addEventListener('click', () => badge.remove());
-    badge.append(toggle, close, list);
-    document.body.appendChild(badge);
+    // Rendered per slide so formula problems are attributed to their slide. With
+    // throwOnError:false KaTeX shows unknown commands in red instead of failing, so each
+    // formula is also parsed strictly: one that parses in neither mode is reported.
+    for (const slide of slides) {
+      const check = math => {
+        let error;
+        for (const displayMode of [false, true]) {
+          try { window.katex.renderToString(math, { displayMode, throwOnError: true }); return math; }
+          catch (err) { error = err; }
+        }
+        warn(`formula error in "${math}": ${error && error.message ? error.message : error}`, { slide: slide.index });
+        return math;
+      };
+      window.renderMathInElement(slide.el, {
+        delimiters: MATH_DELIMITERS,
+        throwOnError: false,
+        preProcess: check,
+        errorCallback: (message, err) => warn(`formula error: ${message} ${err || ''}`.trim(), { slide: slide.index }),
+      });
+    }
   }
 
   // ── Boot (SPEC §17) ───────────────────────────────────────────────────────
@@ -497,7 +709,9 @@
   window.Deck = {
     version: VERSION,
     dev: DEV,
+    preview: PREVIEW,
     warnings,
+    get problems() { return problems.map(p => ({ ...p })); },
     get slides() { return slides.map(summary); },
     get state() {
       const s = slides[state.current];
@@ -508,31 +722,42 @@
     fit: () => fit(),
   };
 
+  function bootPreview() {
+    // ?preview=<index or id>[&step=k]: render one slide at its final step (or k), nothing else.
+    const target = resolveIndex(PARAMS.get('preview'));
+    const index = Number.isInteger(target) && target >= 0 && target < slides.length ? target : 0;
+    const slide = slides[index];
+    const step = PARAMS.has('step') ? Number(PARAMS.get('step')) : slide.N;
+    goTo(index, step);
+  }
+
   function boot() {
     const deckEl = document.getElementById('deck');
+    if (PREVIEW) document.documentElement.classList.add('deck-preview');
     try {
       cfg = readConfig();
       if (!deckEl) throw new Error('no <main id="deck"> element found');
       buildCanvas(deckEl);
+      if (!PREVIEW) buildTopbar();
+      if (DEV) buildDevUi();
       parseSlides(deckEl);
-      renderMath(deckEl);
+      renderMath();
       renderDates();
-      if (cfg.date === 'auto') scheduleMidnightRefresh();
       fit();
       window.addEventListener('resize', fit);
-      document.addEventListener('keydown', onKeyDown);
-      if (slides.length) {
-        slides.forEach(s => { s.el.inert = true; });
+      slides.forEach(s => { s.el.inert = true; });
+      if (!slides.length) warn('the deck has no slides');
+      else if (PREVIEW) bootPreview();
+      else {
+        if (cfg.date === 'auto') scheduleMidnightRefresh();
+        document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
-      } else {
-        warn('the deck has no slides');
       }
     } catch (err) {
       warn(`engine failed to start: ${err && err.message ? err.message : err}`);
       console.error(err);
     } finally {
       document.documentElement.classList.remove('deck-loading');
-      if (DEV) renderBadge();
     }
   }
 

@@ -114,6 +114,63 @@
   .slide--animation { background: #f5f3ee; }
   .anim-stub { margin: auto; font-size: var(--fs-sub); color: var(--muted); }
 
+  /* ── Preview mode (?preview=…, thumbnails): final state, no motion ──── */
+  html.deck-preview *, html.deck-preview *::before, html.deck-preview *::after { transition: none !important; }
+
+  /* ── Top-right button row: [⚡ dev] [▶ Animation] [☰ Slides] (SPEC §12.5) ── */
+  #deck-topbar {
+    position: absolute; top: 18px; right: 18px; z-index: 1000;
+    display: flex; gap: 9px; align-items: stretch;
+  }
+  .top-btn {
+    background: rgba(31,64,122,.88); color: #fff; border: none; border-radius: 9px;
+    padding: 7.875px 15.75px; font: 600 var(--fs-footnote)/1.2 var(--font-sans); letter-spacing: .04em;
+    cursor: pointer; backdrop-filter: blur(6.75px); transition: background .2s;
+  }
+  .top-btn:hover { background: rgba(31,64,122,1); }
+  .top-btn--icon { padding: 7.875px 10px; display: flex; align-items: center; }
+  .top-btn--icon svg { width: 17px; height: 17px; display: block; }
+  #dev-btn.has-problems       { background: rgba(198,40,40,.9); }
+  #dev-btn.has-problems:hover { background: rgba(198,40,40,1); }
+
+  /* ── Overlay panel (⚡ problems now, ☰ Slides navigator in P2) ─────────── */
+  .deck-overlay {
+    position: absolute; inset: 0; z-index: 999;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(4.5px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .deck-overlay.open { opacity: 1; pointer-events: auto; }
+  .deck-panel {
+    background: #fff; border-radius: 15.75px; padding: 27px 31.5px; width: 607.5px; max-height: 78%;
+    overflow-y: auto; box-shadow: 0 27px 72px rgba(0,0,0,.35);
+    display: flex; flex-direction: column; gap: 11.25px;
+  }
+  .deck-panel-title { font-size: var(--fs-sub); font-weight: 700; color: var(--ink); margin-bottom: 6.75px; }
+  .deck-panel-list  { display: flex; flex-direction: column; gap: 11.25px; }
+  .deck-panel-empty { font-size: var(--fs-footnote); color: var(--muted); }
+  .deck-row {
+    display: flex; align-items: flex-start; gap: 15.75px; padding: 11.25px 15.75px;
+    border-radius: 9px; border: 2px solid transparent; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .deck-row:hover { background: #f0f4ff; }
+  .deck-row.is-current { border-color: var(--eth); background: #eef2ff; }
+  .deck-row--deck { cursor: default; }
+  .deck-row--deck:hover { background: transparent; }
+  .deck-thumb {
+    flex-shrink: 0; position: relative; overflow: hidden; background: #fff;
+    border: 1px solid #ddd; border-radius: 5.5px;
+  }
+  .deck-thumb iframe { position: absolute; top: 0; left: 0; border: none; transform-origin: 0 0; pointer-events: none; }
+  .deck-thumb--deck { display: flex; align-items: center; justify-content: center; background: #fff5f5; color: #c62828; }
+  .deck-thumb--deck svg { width: 34px; height: 34px; }
+  .row-info { flex: 1; min-width: 0; }
+  .row-num { font-size: 12.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; }
+  .row-label { font-size: var(--fs-footnote); font-weight: 600; color: var(--ink); margin-top: 2px; }
+  .row-problems { margin-top: 5px; padding-left: 18px; font-size: 12.5px; line-height: 1.4; color: #b71c1c; }
+  .row-problems li + li { margin-top: 3px; }
+
   /* ── Dev warnings badge (decision R4-1; only rendered with ?dev) ─────── */
   #deck-warnings {
     position: fixed; left: 10px; bottom: 10px; z-index: 10000; max-width: min(640px, 90vw);

@@ -218,7 +218,7 @@ const DECK = {
 };
 ```
 
-Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, invalid step attributes, formula errors, etc.) are always logged with `console.warn` and collected in `Deck.warnings`. The red "deck warnings" badge (bottom‑left, expandable list, dismissible) is shown **only when the deck is opened with `?dev`** in the URL (decision R4‑1); in dev mode a green "✓ no deck warnings" badge confirms a clean deck. The live talk and preview mode never show it.
+Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, invalid step attributes, formula errors, etc.) are always logged with `console.warn` and collected in `Deck.warnings`. The red "deck warnings" badge (bottom‑left, expandable list, dismissible) is shown **only when the deck is opened with `?dev`** in the URL (decision R4‑1); in dev mode a green "✓ no deck warnings" badge confirms a clean deck. In addition, dev mode shows the **⚡ problems button** with its panel (§12.7). The live talk and preview mode never show either.
 
 ---
 
@@ -258,7 +258,9 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
 
 ### 8.3 Step model
 - Every slide has `N ≥ 1` steps. `N` = the highest step number referenced inside the slide, or the value of `data-steps="N"` on the section (needed when only a hook uses the steps).
-- Elements without step attributes are always visible (the base layer).
+- **Step 1 shows only the slide title** (decision R5‑1). Steps are cumulative: step *k* shows everything whose range contains *k*; a range can also remove an element again (`data-step="1..2"` disappears at step 3).
+- The slide title (`.slide-title`) is always visible. **Unmarked content appears at step 2.** Precisely: inside the content frame, every element without `data-step` that contains no stepped descendant becomes an implicit `data-step="2"` layer (marked `data-step-implicit`). An unmarked element that *does* contain stepped descendants stays a structural container and the rule continues inside it. So `data-step="1"` anywhere means "visible from the start", e.g. in `<ul><li>A</li><li data-step="1">B</li><li data-step="3">C</li></ul>` B shows at step 1, A at 2, C at 3.
+- The rule applies to `content` and `toc` slides (the generated TOC list appears at step 2), not to `title`, `black` or `animation` slides.
 - **Visibility attribute `data-step`:**
 
   | Value | Visible when current step *s* … |
@@ -271,7 +273,7 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
   `data-step-class="hi:3..3 hl-conv:2"` → `.hi` only at step 3, `.hl-conv` from step 2 on.
   This covers the original's "Problem – **Insight** – Method – Result" title highlight and the code underline glows.
 - **Effects** `data-step-fx="rise|fade|slide-left|none"` (default `rise` = `opacity 0→1, translateY(6px)→0, .35s ease`; `slide-left` = original resolution panels `translateX(-12px), .4s`). Hidden layers keep their space (opacity only), so the layout never jumps, as in the original.
-- **Arrival rule:** the first time a slide is entered **forward** it shows step 1; entering an unvisited slide **backward** shows step N (final). Example (original slide 3): Problem has no attribute (visible at step 1), Insight `data-step="2"`, Method `"3"`, Result `"4"`.
+- **Arrival rule:** the first time a slide is entered **forward** it shows step 1; entering an unvisited slide **backward** shows step N (final). Example (original slide 3, rebuilt): title at step 1, Problem unmarked (step 2), Insight `data-step="3"`, Method `"4"`, Result `"5"`. To show Problem on arrival as in the original, mark it `data-step="1"`.
 
 ### 8.4 Navigation state machine
 State: `current` slide index, `steps[i]` (current step of slide *i*), `visited[i]`.
@@ -375,7 +377,7 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 
 ## 11. Preview mode (thumbnails)
 
-- URL: `<deck>.html?preview=<index>[&step=<k>]` (default *k* = final step N, i.e. "show the final step of all slides").
+- **Implemented** (pulled forward from P2 for the ⚡ panel). URL: `<deck>.html?preview=<index or slide id>[&step=<k>]` (default *k* = final step N, i.e. "show the final step of all slides").
 - In preview mode the engine renders **only** that slide and hides the top buttons, hint, warnings badge, navigator and picker. It builds **no** thumbnails (no recursion), registers no keyboard handling, and still loads animation iframes on animation slides so their preview is real.
 - Thumbnails are iframes at canvas size, scaled into a box of width 112 px (height by canvas ratio).
 - **Loading strategy:** at start‑up the navigator list and all thumbnail iframes are created **one after another** (next starts when the previous fires `load`). They stay alive for the session, so opening the navigator is instant and the presentation's first slide is never slowed down.
@@ -393,7 +395,7 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 - No footer, no slide title, no default padding. The top buttons are present.
 
 ### 12.2 Table of contents slide
-Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level): ETH‑blue numbered circles (as on the original Motivation slide) at `--fs-body`, sub‑items as `–` dashes at `--fs-sub` (decision R4‑3). TOC text may contain `$…$` math. All bullets are visible immediately. (Authors who want stepwise reveal can write the TOC section's content themselves; the engine then leaves it alone.)
+Standard frame, title "Table of Contents", bullets from `DECK.toc` (strings or `{text, sub:[…]}` for one nested level): ETH‑blue numbered circles (as on the original Motivation slide) at `--fs-body`, sub‑items as `–` dashes at `--fs-sub` (decision R4‑3). TOC text may contain `$…$` math. Like every slide, step 1 shows only the title; the whole list appears at step 2 (R5‑1). (Authors who want a different reveal can write the TOC section's content themselves; the engine then leaves it alone.)
 
 ### 12.3 Black slide
 Pure `#000`, letterbox black. Only the top buttons are visible. Navigator label "–" / "End".
@@ -404,12 +406,21 @@ Pure `#000`, letterbox black. Only the top buttons are visible. Navigator label 
 - Date: `DECK.date === 'auto'` → today's local date, refreshed automatically at midnight. Otherwise the fixed string is used.
 
 ### 12.5 Top buttons
-A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the canvas: `[animation button] [☰ Slides]`. Styling as original (`rgba(31,64,122,.88)`, white, 13px, 600, radius 8px, blur). Present on **every** slide (title and black included), above overlays (z‑index), hidden only in preview mode.
+A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the canvas: `[⚡ dev only] [animation button] [☰ Slides]` (row implemented; ⚡ see §12.7). Styling as original (`rgba(31,64,122,.88)`, white, 13px, 600, radius 8px, blur). Present on **every** slide (title and black included), above overlays (z‑index), hidden only in preview mode.
 
 ### 12.6 Slides navigator
 - Opens/closes via `☰ Slides`, click on the backdrop, or Esc.
 - Panel "All Slides", one row per slide: thumbnail (§11), number line (`Slide 7` / `Appendix 1` / `–`) and title (slide title text). The subtitle line from the original is dropped (decision: number + title only).
 - The current slide is highlighted and scrolled into view on open. Clicking a row jumps there (step memory rules apply) and closes the panel.
+
+### 12.7 Dev problems panel (⚡, only with `?dev`)
+- In dev mode a **symbol‑only button** (lightning‑bolt SVG, no text, `aria-label` only) sits **leftmost** in the top‑right button row: `[⚡] [▶ Animation] [☰ Slides]` (decision R5‑4). It is red when the deck has problems and ETH blue when it is clean. Without `?dev` it does not exist.
+- Clicking it opens the **"Deck problems" panel**, built on the same overlay/panel component as the slides navigator (§12.6):
+  - first row **Deck**: configuration and structure problems that belong to no single slide;
+  - then one row **per affected slide**, in slide order: live preview iframe (`?preview=<index>`, final step), slide number + title, and the list of that slide's problems (decision R5‑2: *all* warnings, not only missing resources).
+- Clicking a slide row closes the panel and jumps to that slide at its **final step**. Reopening keeps the scroll position, so problems can be worked through one after another. The current slide's row is highlighted. Esc / click outside / ⚡ again closes it; while it is open, navigation keys are ignored.
+- The panel re‑renders when it is opened and when new problems appear (e.g. a hook that throws on a later slide). Every warning carries the index of the slide it belongs to (`Deck.problems` → `{ message, slide }`).
+- The bottom‑left badge (§7) stays as a summary (decision R5‑3).
 
 ---
 
@@ -516,7 +527,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 |---|---|---|
 | **P0 Setup** ✅ done | Repo layout (§4.2), `engine/` skeleton, fetch + commit vendor files (KaTeX 0.16.47, Inter, Fira Code, DM fonts) and licences, `tools/build.py`, tests. | Vendor files hash‑locked; build produces both templates (smoke‑test content only); verified offline in headless Edge (no network, all fonts + KaTeX render). |
 | **P1 Core engine** ✅ done | Canvas scaling + letterbox, slide parsing, content frame, footer/numbering/date, crossfade, keyboard, **step engine + step memory**, hooks, warnings badge. | A test deck with 5 stepped content slides behaves per §8.3/§8.4; numbers/dates correct; resizing keeps layout identical. |
-| **P2 Special slides + navigator** | Title slide (auto‑sized box), TOC, black slide, appendix numbering, top buttons, navigator with preview mode and staggered thumbnails. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
+| **P2 Special slides + navigator** | Title slide (auto‑sized box), ☰ Slides button and navigator. *Already done during P1 follow‑up:* TOC, black slide, appendix numbering, top‑button row, shared overlay/panel component, preview mode, staggered thumbnails, ⚡ dev panel. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
 | **P3 Assets** | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
 | **P4 Animations** | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
 | **P5 Look & components** | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
@@ -553,6 +564,10 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑7 | CSS layers: `reset < vendor < engine < components < user`. The reset sits below vendor so it never overrides KaTeX spacing. Animation files keep vendor CSS unlayered. | P1 |
 | D‑8 | Plain text inside `.slide-content` defaults to `--fs-body` / line‑height 1.5. | P1 |
 | D‑9 | Engine tests run fixture decks in headless Edge/Chrome via `file://` with network disabled (`tools/tests/browser.py`); skipped if no browser is installed. | P1 |
+| R5‑1 | Step 1 = slide title only; unmarked content appears at step 2; `data-step="1"` puts content into step 1; containers with stepped descendants stay structural. Applies to content and TOC slides. | Round 5 |
+| R5‑2 | ⚡ panel lists all warnings, grouped per slide (plus a Deck row), with preview iframe and jump. | Round 5 |
+| R5‑3 | The bottom‑left warnings badge stays alongside the ⚡ button. | Round 5 |
+| R5‑4 | ⚡ is leftmost in the top‑right row, symbol only, `?dev` only; clicking a row jumps to the slide's final step and closes the panel. | Round 5 |
 | D‑5 | Vendor sources: jsDelivr (`katex`, `@fontsource(-variable)/*` 5.3.0), subsets latin, latin‑ext, greek(+ext); Inter as variable font (100–900). | P0 |
 | D‑6 | Engine version stays 0.x during P0–P5 and becomes 1.0.0 at the end of P6. | P0 |
 | R2‑1 | Canvas 1280×800 (16:10); all original px values × 1.125. | Round 2 |
