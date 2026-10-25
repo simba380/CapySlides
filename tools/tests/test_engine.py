@@ -31,10 +31,12 @@ HELPERS = """
 
 
 @lru_cache(maxsize=None)
-def fixture(name: str, date: str | None = None) -> str:
+def fixture(name: str, date: str | None = None, title: str | None = None) -> str:
     shell = (FIXTURES / f"{name}.html").read_text(encoding="utf-8")
     if date is not None:
         shell = shell.replace("date:      '01.02.2026'", f"date:      '{date}'")
+    if title is not None:
+        shell = shell.replace("title:     'Fixture deck for the engine tests'", f"title:     {title!r}")
     return build.build_deck(shell, build.engine_version())
 
 
@@ -294,12 +296,12 @@ class EngineTest(unittest.TestCase):
         joined = "\n".join(r["warnings"])
         for fragment in expected:
             self.assertIn(fragment, joined)
-        self.assertEqual(r["labels"], ["1", "2", "3", "4", "5"])   # no black: everything is main
+        self.assertEqual(r["labels"], ["1", "2", "3", "4", "5", "6"])   # no black: everything is main
         self.assertTrue(r["redFormula"], "a broken formula is still rendered (in red) by KaTeX")
 
 
 @unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
-class PreviewAndDevPanelTest(unittest.TestCase):
+class PreviewTest(unittest.TestCase):
 
     def test_preview_mode_renders_one_slide_at_final_step(self):
         js = """
@@ -307,8 +309,8 @@ class PreviewAndDevPanelTest(unittest.TestCase):
           key('ArrowRight');                               // no keyboard handling in preview
           return { state: before, after: Deck.state, preview: Deck.preview,
                    active: [...document.querySelectorAll('#deck > section.is-active')].map(s => s.id),
-                   topbar: !!$('deck-topbar'), badge: !!$('deck-warnings'),
-                   cls: document.documentElement.className,
+                   topbar: !!$('deck-topbar'), badge: !!$('deck-warnings'), hint: !!$('deck-hint'),
+                   nav: !!$('nav-overlay'), cls: document.documentElement.className,
                    hooks: window.hookCalls || [] };
         """
         r = probe("steps_deck-preview", js, query="?preview=3")
@@ -316,72 +318,196 @@ class PreviewAndDevPanelTest(unittest.TestCase):
         self.assertEqual(r["active"], ["ranges"])
         self.assertEqual((r["state"]["id"], r["state"]["step"]), ("ranges", 4))   # final step
         self.assertEqual(r["after"]["step"], 4)
-        self.assertFalse(r["topbar"])
-        self.assertFalse(r["badge"])
+        for part in ("topbar", "badge", "hint", "nav"):
+            self.assertFalse(r[part], part)
         self.assertIn("deck-preview", r["cls"])
         r = probe("steps_deck-preview-id", js, query="?preview=hooked&step=2&dev")
         self.assertEqual((r["state"]["id"], r["state"]["step"]), ("hooked", 2))
         self.assertFalse(r["badge"], "preview never shows dev UI, even with ?dev")
         self.assertEqual(r["hooks"], [[2, True, 5, True]])                     # ctx.preview = true
 
-    def test_dev_button_only_with_dev(self):
-        r = probe("steps_deck-nodev", "return { btn: !!$('dev-btn'), topbar: !!$('deck-topbar') };")
-        self.assertEqual(r, {"btn": False, "topbar": True})
-        r = probe("steps_deck-devbtn", """
-          const b = $('dev-btn');
-          return { text: b.textContent.trim(), svg: !!b.querySelector('svg'), cls: b.className,
-                   label: b.getAttribute('aria-label'), first: $('deck-topbar').firstElementChild === b };
-        """, query="?dev")
-        self.assertEqual(r["text"], "", "the ⚡ button shows a symbol only")
-        self.assertTrue(r["svg"])
-        self.assertTrue(r["first"])
-        self.assertNotIn("has-problems", r["cls"])
 
-    def test_dev_panel_lists_problems_by_slide_and_jumps(self):
-        r = probe("broken_deck-panel", """
-          const o = {};
-          o.btnCls = $('dev-btn').className;
-          Deck.goTo('thrower');                                  // triggers the throwing hook
-          $('dev-btn').click();
-          o.open = $('dev-overlay').classList.contains('open');
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class NavigatorTest(unittest.TestCase):
+
+    ROWS = """
+      [...document.querySelectorAll('#nav-overlay .deck-row')].map(row => ({
+        slide: Number(row.dataset.slide),
+        num: row.querySelector('.row-num').textContent,
+        label: row.querySelector('.row-label').textContent,
+        current: row.classList.contains('is-current'),
+        bad: row.classList.contains('has-problems'),
+        problems: [...row.querySelectorAll('.row-problems li')].map(li => li.textContent),
+        src: row.querySelector('iframe').getAttribute('src'),
+      }))
+    """
+
+    def test_navigator_rows_thumbnails_and_step_memory(self):
+        r = probe("steps_deck-nav-panel", f"""
+          const o = {{}};
+          const btn = $('nav-btn');
+          o.button = {{ text: btn.textContent, red: btn.classList.contains('has-problems'),
+                       last: $('deck-topbar').lastElementChild === btn }};
+          o.devBtn = !!$('dev-btn');
+          o.hint = $('deck-hint').textContent;
+          const frames = [...document.querySelectorAll('#nav-overlay iframe')];
+          o.loadingAtStart = frames.filter(f => f.getAttribute('src')).length;   // one at a time
+          await new Promise(done => {{
+            const t0 = performance.now();
+            (function poll() {{
+              if (frames.every(f => f.getAttribute('src')) || performance.now() - t0 > 7000) done();
+              else setTimeout(poll, 100);
+            }})();
+          }});
+          Deck.goTo('basic', 3); Deck.goTo('math');
+          btn.click();
+          o.open = $('nav-overlay').classList.contains('open');
           o.locked = Deck.state.locked;
-          o.rows = [...document.querySelectorAll('#dev-overlay .deck-row')].map(row => ({
-            slide: row.dataset.slide ?? null,
-            num: row.querySelector('.row-num').textContent,
-            frame: row.querySelector('iframe')?.dataset.src.split('?')[1] ?? null,
-            problems: [...row.querySelectorAll('.row-problems li')].map(li => li.textContent),
-          }));
-          const before = Deck.state.id;
-          key('ArrowRight');
-          o.keysBlocked = Deck.state.id === before && Deck.state.step === 1;
-          key('Escape');
-          o.escClosed = !$('dev-overlay').classList.contains('open') && !Deck.state.locked;
-          $('dev-btn').click();
-          document.querySelector('#dev-overlay .deck-row[data-slide="3"]').click();
-          o.jumped = Deck.state;
-          o.closedAfterJump = !$('dev-overlay').classList.contains('open');
+          o.rows = {self.ROWS};
+          o.deckBox = !$('nav-overlay').querySelector('.nav-deck-problems')?.hidden;
+          key('ArrowRight'); o.keysBlocked = Deck.state.id === 'math';
+          key('Escape'); o.escClosed = !$('nav-overlay').classList.contains('open') && !Deck.state.locked;
+          btn.click(); $('nav-overlay').click();             // click on the backdrop
+          o.backdropClosed = !$('nav-overlay').classList.contains('open');
+          btn.click(); document.querySelector('#nav-overlay .deck-row[data-slide="2"]').click();
+          o.toVisited = st();                                 // basic was left at step 3
+          btn.click(); document.querySelector('#nav-overlay .deck-row[data-slide="3"]').click();
+          o.toUnvisited = st();
+          o.closed = !$('nav-overlay').classList.contains('open');
+          return o;
+        """, budget_ms=8000)
+        self.assertEqual(r["button"], {"text": "☰ Slides", "red": False, "last": True})
+        self.assertFalse(r["devBtn"])
+        self.assertEqual(r["hint"], "← → to navigate")
+        self.assertEqual(r["loadingAtStart"], 1, "thumbnails start loading one at a time")
+        self.assertTrue(r["open"] and r["locked"])
+        rows = r["rows"]
+        self.assertEqual([row["num"] for row in rows],
+                         ["Slide 1", "Slide 2", "Slide 3", "Slide 4", "Slide 5", "Slide 6", "Slide 7", "–",
+                          "Appendix 1", "Appendix 2"])
+        self.assertEqual(rows[0]["label"], "Fixture deck for the engine tests")
+        self.assertEqual(rows[2]["label"], "Basic steps")
+        self.assertEqual([row["current"] for row in rows], [i == 6 for i in range(10)])
+        self.assertTrue(all(row["src"] and row["src"].endswith(f"?preview={i}") for i, row in enumerate(rows)),
+                        "all thumbnails loaded (sequentially) after startup")
+        self.assertFalse(any(row["bad"] or row["problems"] for row in rows), "no problem UI without ?dev")
+        self.assertFalse(r["deckBox"])
+        self.assertTrue(r["keysBlocked"])
+        self.assertTrue(r["escClosed"])
+        self.assertTrue(r["backdropClosed"])
+        self.assertEqual(r["toVisited"], {"id": "basic", "step": 3, "label": "3"})
+        self.assertEqual(r["toUnvisited"], {"id": "ranges", "step": 1, "label": "4"})
+        self.assertTrue(r["closed"])
+
+    def test_dev_problems_in_navigator(self):
+        r = probe("broken_deck-nav-dev", f"""
+          const o = {{}};
+          Deck.goTo('thrower');                                  // runs the throwing hook (step 1)
+          o.red = $('nav-btn').classList.contains('has-problems');
+          o.devBtn = !!$('dev-btn');
+          $('nav-btn').click();
+          const box = document.querySelector('#nav-overlay .nav-deck-problems');
+          o.deckBox = {{ hidden: box.hidden, items: [...box.querySelectorAll('li')].map(li => li.textContent) }};
+          o.rows = {self.ROWS};
+          document.querySelector('#nav-overlay .deck-row[data-slide="5"]').click();
+          o.late = st();                                         // first problem at step 3
+          $('nav-btn').click();
+          document.querySelector('#nav-overlay .deck-row[data-slide="2"]').click();
+          o.thrower = st();
           o.problems = Deck.problems;
           return o;
         """, query="?dev")
-        self.assertIn("has-problems", r["btnCls"])
-        self.assertTrue(r["open"])
-        self.assertTrue(r["locked"])
-        rows = r["rows"]
-        self.assertEqual(rows[0]["slide"], None)
-        self.assertEqual(rows[0]["num"], "Deck")
-        self.assertTrue(any("DECK.toc must be an array" in p for p in rows[0]["problems"]))
-        by_slide = {row["slide"]: row for row in rows[1:]}
-        self.assertEqual(list(by_slide), sorted(by_slide, key=int))                  # slide order
-        self.assertEqual(by_slide["2"]["frame"], "preview=2")
-        thrower = "\n".join(by_slide["2"]["problems"])
-        for fragment in ('unknown data-type="weird"', 'invalid data-step="2..1"', 'threw: boom', 'formula error'):
-            self.assertIn(fragment, thrower)
-        self.assertIn('data-steps="1" is lower', "\n".join(by_slide["3"]["problems"]))
-        self.assertTrue(r["keysBlocked"])
-        self.assertTrue(r["escClosed"])
-        self.assertEqual((r["jumped"]["current"], r["jumped"]["step"]), (3, 3))      # final step
-        self.assertTrue(r["closedAfterJump"])
-        self.assertTrue(all(isinstance(p["slide"], int) or p["slide"] is None for p in r["problems"]))
+        self.assertTrue(r["red"])
+        self.assertFalse(r["devBtn"])
+        self.assertFalse(r["deckBox"]["hidden"])
+        self.assertTrue(any("DECK.toc must be an array" in i for i in r["deckBox"]["items"]))
+        self.assertTrue(any("no black slide" in i for i in r["deckBox"]["items"]))
+        rows = {row["slide"]: row for row in r["rows"]}
+        self.assertEqual(len(rows), 6)
+        thrower = rows[2]
+        self.assertTrue(thrower["bad"])
+        self.assertTrue(all(p.startswith("step ") for p in thrower["problems"]))
+        steps = [int(p.split()[1]) for p in thrower["problems"]]
+        self.assertEqual(steps, sorted(steps))                                  # sorted by step
+        joined = "\n".join(thrower["problems"])
+        self.assertIn('step 1 · slide 3: unknown data-type="weird"', joined)
+        self.assertIn('step 2 · slide 3 ("thrower"): unknown data-step-fx="wobble"', joined)
+        self.assertIn("step 1 · DECK.hooks[\"thrower\"] threw: boom", joined)
+        self.assertIn('step 2 · formula error in "\\notacommand"', joined)       # implicit step-2 paragraph
+        self.assertEqual(rows[5]["problems"], [rows[5]["problems"][0]])
+        self.assertTrue(rows[5]["problems"][0].startswith('step 3 · formula error in "\\alsonotacommand"'))
+        self.assertEqual(r["late"], {"id": "late", "step": 3, "label": "6"})
+        self.assertEqual(r["thrower"]["step"], 1)
+        late = [p for p in r["problems"] if p["slide"] == 5]
+        self.assertEqual([p["step"] for p in late], [3])
+
+    def test_dev_clean_slide_uses_step_memory(self):
+        r = probe("steps_deck-nav-dev", """
+          const o = { red: $('nav-btn').classList.contains('has-problems') };
+          Deck.goTo('ranges', 3); Deck.goTo(0);
+          $('nav-btn').click();
+          o.deckBoxHidden = document.querySelector('#nav-overlay .nav-deck-problems').hidden;
+          o.anyBad = !!document.querySelector('#nav-overlay .deck-row.has-problems');
+          document.querySelector('#nav-overlay .deck-row[data-slide="3"]').click();
+          o.ranges = st();
+          return o;
+        """, query="?dev")
+        self.assertFalse(r["red"])
+        self.assertTrue(r["deckBoxHidden"])
+        self.assertFalse(r["anyBad"])
+        self.assertEqual(r["ranges"]["step"], 3)
+
+
+@unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
+class TitleSlideTest(unittest.TestCase):
+
+    MEASURE = """
+      await document.fonts.ready;
+      await new Promise(r => setTimeout(r, 50));
+      const box = document.querySelector('.cover-box');
+      const lines = el => { const r = document.createRange(); r.selectNodeContents(el); return r.getClientRects().length; };
+      return {
+        width: box.offsetWidth,
+        texts: [...box.children].map(c => [c.className, c.textContent]),
+        overflow: [...box.children].some(c => c.scrollWidth > c.clientWidth + 1),
+        titleLines: lines(box.querySelector('.cover-title')),
+        header: [...document.querySelectorAll('.cover-header > div')].map(d => d.textContent),
+        logo: document.querySelector('.cover-eth').textContent,
+        footer: !!$('slide-1').querySelector('.slide-footer'),
+        bg: getComputedStyle(document.querySelector('.cover-bg')).backgroundImage,
+        warnings: Deck.warnings,
+      };
+    """
+
+    def test_cover_structure(self):
+        r = probe("steps_deck-cover", self.MEASURE)
+        self.assertEqual(r["texts"], [["cover-title", "Fixture deck for the engine tests"],
+                                      ["cover-subtitle", "Engine test (2026)"],
+                                      ["cover-presenter", "Test Presenter"]])
+        self.assertEqual(r["header"], ["000-0000-00L Testing", "Seminar, FS26"])
+        self.assertEqual(r["logo"], "ETH zürich")
+        self.assertFalse(r["footer"])
+        self.assertIn("images/eth_zurich_aerial.png", r["bg"])
+        self.assertEqual(r["warnings"], [])
+
+    def test_box_shrinks_to_content(self):
+        short = probe("steps_deck-cover-short", self.MEASURE, page=fixture("steps_deck", title="Short"))
+        long = probe("steps_deck-cover-long", self.MEASURE, page=fixture(
+            "steps_deck", title="EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks"))
+        self.assertLess(short["width"], long["width"])
+        self.assertLessEqual(long["width"], 0.58 * 1280 + 1)
+        self.assertGreater(long["titleLines"], 1)
+        self.assertEqual(short["titleLines"], 1)
+        self.assertFalse(short["overflow"] or long["overflow"])
+        # short title: the box is as wide as the widest of title / subtitle / presenter + padding
+        self.assertLess(short["width"], 0.58 * 1280 * 0.6)
+
+    def test_title_content_is_ignored_with_warning(self):
+        page = fixture("steps_deck").replace('<section data-type="title"></section>',
+                                             '<section data-type="title"><p data-step="2">custom</p></section>')
+        r = probe("steps_deck-cover-content", "return { w: Deck.warnings, N: Deck.slides[0].N };", page=page)
+        self.assertEqual(r["N"], 1)
+        self.assertTrue(any("title slide content is ignored" in w for w in r["w"]))
 
 
 if __name__ == "__main__":

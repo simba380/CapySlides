@@ -104,13 +104,27 @@
   .slide--black { background: #000; }
   .slide--black > * { display: none; }
 
-  /* Temporary stubs: the real title slide arrives in P2, animation slides in P4. */
-  .slide--title { background: #1c2f52; color: #fff; justify-content: flex-end; }
-  .title-stub { margin: 0 0 31.5px; padding: 45px 58.5px 49.5px 49.5px; background: var(--eth); max-width: 58%; }
-  .title-stub-title { font-size: var(--fs-cover-title); font-weight: 700; line-height: 1.3; margin-bottom: 18px; }
-  .title-stub-sub { font-size: var(--fs-sub); color: rgba(255,255,255,.78); margin-bottom: 22.5px; }
-  .title-stub-sub:empty { display: none; }
-  .title-stub-presenter { font-size: var(--fs-body); font-weight: 700; }
+  /* ── Title slide (SPEC §12.1) — default slide styling does not apply ─── */
+  .slide--title { background: #1c2f52; overflow: hidden; }
+  .cover-bg { position: absolute; inset: 0; background: center / cover no-repeat; }
+  .cover-eth {
+    position: absolute; top: 22.5px; left: 31.5px; padding: 5.625px 13.5px 5.625px 11.25px;
+    background: #fff; color: #1a1a1a; font-size: 22.5px; font-weight: 900; letter-spacing: -.56px; line-height: 1;
+  }
+  .cover-eth span { font-weight: 400; }
+  .cover-header {
+    position: absolute; top: 69.75px; right: 18px; text-align: right;
+    font-size: var(--fs-footnote); line-height: 1.6; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+  .cover-box {
+    position: absolute; left: 0; bottom: 31.5px; width: max-content; max-width: 58%;
+    padding: 45px 58.5px 49.5px 49.5px; background: var(--eth); color: #fff;
+  }
+  .cover-title { font-size: var(--fs-cover-title); font-weight: 700; line-height: 1.3; margin-bottom: 18px; text-wrap: balance; }
+  .cover-subtitle { font-size: var(--fs-sub); color: rgba(255,255,255,.78); margin-bottom: 22.5px; }
+  .cover-presenter { font-size: var(--fs-body); font-weight: 700; }
+
+  /* Temporary stub: animation slides arrive in P4. */
   .slide--animation { background: #f5f3ee; }
   .anim-stub { margin: auto; font-size: var(--fs-sub); color: var(--muted); }
 
@@ -128,12 +142,17 @@
     cursor: pointer; backdrop-filter: blur(6.75px); transition: background .2s;
   }
   .top-btn:hover { background: rgba(31,64,122,1); }
-  .top-btn--icon { padding: 7.875px 10px; display: flex; align-items: center; }
-  .top-btn--icon svg { width: 17px; height: 17px; display: block; }
-  #dev-btn.has-problems       { background: rgba(198,40,40,.9); }
-  #dev-btn.has-problems:hover { background: rgba(198,40,40,1); }
+  #nav-btn.has-problems       { background: rgba(198,40,40,.9); }   /* ?dev only (R6-3) */
+  #nav-btn.has-problems:hover { background: rgba(198,40,40,1); }
 
-  /* ── Overlay panel (⚡ problems now, ☰ Slides navigator in P2) ─────────── */
+  /* "← → to navigate", fades after 4 s */
+  #deck-hint {
+    position: absolute; bottom: 6.75px; left: 50%; transform: translateX(-50%); z-index: 998;
+    font-size: var(--fs-footnote); color: rgba(0,0,0,.18); pointer-events: none; transition: opacity .5s;
+  }
+  #deck-hint.faded { opacity: 0; }
+
+  /* ── Overlay panel (☰ Slides navigator; animation picker in P4) ────────── */
   .deck-overlay {
     position: absolute; inset: 0; z-index: 999;
     background: rgba(0,0,0,.65); backdrop-filter: blur(4.5px);
@@ -142,6 +161,7 @@
   }
   .deck-overlay.open { opacity: 1; pointer-events: auto; }
   .deck-panel {
+    position: relative;
     background: #fff; border-radius: 15.75px; padding: 27px 31.5px; width: 607.5px; max-height: 78%;
     overflow-y: auto; box-shadow: 0 27px 72px rgba(0,0,0,.35);
     display: flex; flex-direction: column; gap: 11.25px;
@@ -156,15 +176,15 @@
   }
   .deck-row:hover { background: #f0f4ff; }
   .deck-row.is-current { border-color: var(--eth); background: #eef2ff; }
-  .deck-row--deck { cursor: default; }
-  .deck-row--deck:hover { background: transparent; }
+  .deck-row.has-problems { border-left-color: #c62828; }
+  .deck-row.has-problems.is-current { border-color: #c62828; }
+  .nav-deck-problems { padding: 11.25px 15.75px; border-radius: 9px; background: #fdecea; border: 1px solid #f5c2c0; }
+  .nav-deck-problems .row-num { color: #b71c1c; }
   .deck-thumb {
     flex-shrink: 0; position: relative; overflow: hidden; background: #fff;
     border: 1px solid #ddd; border-radius: 5.5px;
   }
   .deck-thumb iframe { position: absolute; top: 0; left: 0; border: none; transform-origin: 0 0; pointer-events: none; }
-  .deck-thumb--deck { display: flex; align-items: center; justify-content: center; background: #fff5f5; color: #c62828; }
-  .deck-thumb--deck svg { width: 34px; height: 34px; }
   .row-info { flex: 1; min-width: 0; }
   .row-num { font-size: 12.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; }
   .row-label { font-size: var(--fs-footnote); font-weight: 600; color: var(--ink); margin-top: 2px; }

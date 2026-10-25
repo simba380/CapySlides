@@ -1,8 +1,7 @@
 /* Deck engine v__ENGINE_VERSION__ — runtime. Source of truth: engine/deck.js (inlined by tools/build.py).
    Implements SPEC §6 canvas, §7 config, §8 slides/steps/navigation, §11 preview mode,
-   §12.2–12.4 TOC/black/footer, §12.7 dev problems panel.
-   Later phases plug in here: P2 title slide, ☰ Slides navigator; P3 assets; P4 animations;
-   P5 math escaping + components. */
+   §12 title/TOC/black/footer/top buttons/navigator (incl. dev problems).
+   Later phases plug in here: P3 assets; P4 animations; P5 math escaping + components. */
 (() => {
   'use strict';
 
@@ -25,8 +24,8 @@
     { left: '$',  right: '$',  display: false },
     { left: '\\(', right: '\\)', display: false },
   ];
-  const THUMB_WIDTH = 126;   // navigator/problem-panel thumbnails (original 112px x 1.125)
-  const ICON_BOLT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4.5 13.5h6.5L9.5 22l10-12.5H13L13.5 2z" fill="currentColor"/></svg>';
+  const THUMB_WIDTH = 126;   // navigator thumbnails (original 112px x 1.125)
+  const HINT_MS = 4000;      // "← → to navigate" fades after this
 
   const DEFAULTS = {
     title: '',
@@ -45,11 +44,13 @@
   const state = { current: -1, locked: false, scale: 1 };
 
   // ── Problems / warnings ───────────────────────────────────────────────────
-  // Authoring problems never stop the deck. Each one is logged to the console and kept
-  // with the slide it belongs to; with ?dev they are listed in the badge and the ⚡ panel.
+  // Authoring problems never stop the deck. Each one is logged to the console and kept with
+  // the slide (and element / step) it belongs to; with ?dev they are listed in the badge and
+  // inside the ☰ Slides navigator (SPEC §7, §12.6).
 
-  const problems = [];   // { message, slide: index | null }
+  const problems = [];   // { message, slide: index | null, el: Element | null, step: number | null }
   const warnings = [];   // messages only (public, Deck.warnings)
+  const layerRanges = new Map();   // step-layer element → [from, to]
 
   function slideIndexOf(el) {
     const section = el && el.closest ? el.closest('#deck > section') : null;
@@ -57,14 +58,32 @@
     return i >= 0 ? i : null;
   }
 
-  /** warn(message, { slide?: index, el?: element }) */
+  /** warn(message, { slide?: index, el?: element, step?: number }) */
   function warn(message, where = {}) {
     const slide = where.slide !== undefined ? where.slide : slideIndexOf(where.el);
-    problems.push({ message, slide: slide === undefined ? null : slide });
+    problems.push({ message, slide: slide === undefined ? null : slide,
+                    el: where.el || null, step: where.step || null });
     warnings.push(message);
     if (where.el) console.warn('[deck] ' + message, where.el);
     else console.warn('[deck] ' + message);
     refreshDevUi();
+  }
+
+  /** First step at which `el` is visible: the latest start of the step layers around it. */
+  function firstVisibleStep(el) {
+    let step = 1;
+    for (let n = el; n && n.parentElement && n.parentElement.id !== 'deck'; n = n.parentElement) {
+      const range = layerRanges.get(n);
+      if (range) step = Math.max(step, range[0]);
+    }
+    return step;
+  }
+
+  /** Step at which a problem becomes visible (R6-4): explicit step, else its element's step, else 1. */
+  function problemStep(p) {
+    if (p.step) return p.step;
+    if (p.el && p.el.isConnected) return firstVisibleStep(p.el);
+    return 1;
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
@@ -202,6 +221,7 @@
       }
       layer.classList.add('step-layer', 'fx-' + fx);
       slide.layers.push({ el: layer, range });
+      layerRanges.set(layer, range);
       note(range);
     }
 
@@ -283,12 +303,53 @@
     el.appendChild(list);
   }
 
-  function renderTitleStub(el) {
-    // Minimal cover until the real title slide lands in P2.
-    const box = h('div', 'title-stub');
-    box.append(h('div', 'title-stub-title', cfg.title), h('div', 'title-stub-sub', cfg.subtitle),
-               h('div', 'title-stub-presenter', cfg.presenter));
-    el.appendChild(box);
+  // ── Title slide (SPEC §12.1) ──────────────────────────────────────────────
+
+  function renderCover(slide) {
+    const { el } = slide;
+    if (el.children.length) {
+      warn(`slide ${slide.index + 1}: title slide content is ignored; the cover is rendered from DECK`, { slide: slide.index });
+      const ignored = h('div', 'cover-ignored');
+      ignored.hidden = true;
+      while (el.firstChild) ignored.appendChild(el.firstChild);
+      el.appendChild(ignored);
+    }
+    const bg = h('div', 'cover-bg');
+    if (cfg.cover.background) bg.style.backgroundImage = `url(${JSON.stringify(String(cfg.cover.background))})`;
+
+    const logo = h('div', 'cover-eth', 'ETH ');
+    logo.appendChild(h('span', '', 'zürich'));
+
+    const header = h('div', 'cover-header');
+    const { title, type, semester } = cfg.course;
+    const lines = [title, [type, semester].filter(Boolean).join(', ')].filter(Boolean);
+    lines.forEach(line => header.appendChild(h('div', '', String(line))));
+    header.hidden = !lines.length;
+
+    const box = h('div', 'cover-box');
+    box.style.maxWidth = String(cfg.cover.boxMaxWidth);
+    box.appendChild(h('div', 'cover-title', String(cfg.title)));
+    if (String(cfg.subtitle).trim()) box.appendChild(h('div', 'cover-subtitle', String(cfg.subtitle)));
+    box.appendChild(h('div', 'cover-presenter', String(cfg.presenter)));
+
+    el.append(bg, logo, header, box);
+  }
+
+  /** Shrink the blue box to its longest rendered line: CSS max-content alone would keep the full
+      max-width as soon as the title wraps. Measured in canvas px (screen px / stage scale). */
+  function fitCoverBox() {
+    for (const box of document.querySelectorAll('#deck .cover-box')) {
+      box.style.width = '';
+      let longest = 0;
+      for (const text of box.children) {
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        for (const r of range.getClientRects()) longest = Math.max(longest, r.width / state.scale);
+      }
+      const cs = getComputedStyle(box);
+      const padding = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      if (longest > 0) box.style.width = Math.ceil(longest + padding + 1) + 'px';
+    }
   }
 
   function renderAnimationStub(slide) {
@@ -367,13 +428,13 @@
     for (const slide of slides) {
       const { el, type } = slide;
       const empty = el.children.length === 0;
-      if (type === 'title' && empty) renderTitleStub(el);
+      if (type === 'title') renderCover(slide);
       if (type === 'toc' && empty) renderToc(slide);
       if (type === 'animation') renderAnimationStub(slide);
       if (type === 'black' && !empty) warn(`slide ${slide.index + 1}: the black slide should be empty; its content is hidden`, { slide: slide.index });
       if (FRAMED_TYPES.includes(type)) wrapContent(slide);
       slide.title = slideTitle(slide);
-      parseSteps(slide);
+      if (type !== 'title') parseSteps(slide);   // the cover is a single step
     }
 
     for (const id of Object.keys(cfg.hooks)) {
@@ -392,7 +453,7 @@
       try {
         hook(step, slide.el, { preview: PREVIEW, first: !slide.rendered, N: slide.N });
       } catch (err) {
-        warn(`DECK.hooks["${slide.id}"] threw: ${err && err.message ? err.message : err}`, { slide: slide.index });
+        warn(`DECK.hooks["${slide.id}"] threw: ${err && err.message ? err.message : err}`, { slide: slide.index, step });
       }
     }
     slide.rendered = true;
@@ -459,7 +520,7 @@
     return true;
   }
 
-  // ── Overlays (shared by the ⚡ problems panel and, from P2 on, ☰ Slides) ──
+  // ── Overlays (☰ Slides navigator now, the animation picker in P4) ─────────
   // One overlay is open at a time. While open, forward/back are ignored (SPEC §8.4).
 
   const overlays = [];
@@ -550,9 +611,12 @@
     return slide.zone === 'appendix' ? slide.label : `Slide ${slide.label}`;
   }
 
-  // ── Dev mode: ⚡ problems panel + badge (SPEC §12.7, decisions R4-1, R5-2…R5-4) ──
+  // ── Top bar, ☰ Slides navigator, dev problems (SPEC §12.5, §12.6; R6-1…R6-4) ──
+  // One navigator for everything: with ?dev it additionally lists every slide's problems,
+  // a red "Deck" box for deck-wide problems, and the ☰ button turns red.
 
-  let devButton = null, devPanel = null, badge = null;
+  let navButton = null, nav = null, navDeckBox = null, badge = null;
+  const navRows = [];
 
   function buildTopbar() {
     topbar = h('div');
@@ -560,16 +624,80 @@
     stage.appendChild(topbar);
   }
 
-  function buildDevUi() {
-    devPanel = createOverlay('dev-overlay', 'Deck problems', renderDevPanel);
-    devButton = h('button', 'top-btn top-btn--icon');
-    devButton.id = 'dev-btn';
-    devButton.type = 'button';
-    devButton.setAttribute('aria-label', 'Deck problems');
-    devButton.innerHTML = ICON_BOLT;
-    devButton.addEventListener('click', () => toggleOverlay(devPanel));
-    topbar.prepend(devButton);   // leftmost: [⚡] [▶ Animation] [☰ Slides]
+  function buildNavigator() {
+    nav = createOverlay('nav-overlay', 'All Slides', renderNav);
+    navDeckBox = h('div', 'nav-deck-problems');
+    navDeckBox.hidden = true;
+    nav.panel.insertBefore(navDeckBox, nav.list);
+    for (const slide of slides) {
+      const row = h('div', 'deck-row');
+      row.dataset.slide = slide.index;
+      const info = h('div', 'row-info');
+      info.append(h('div', 'row-num', slideNumberText(slide)), h('div', 'row-label', slide.title));
+      row.append(thumbnail(slide.index), info);   // thumbnails load one after another
+      row.addEventListener('click', () => {
+        closeOverlay(nav);
+        goTo(slide.index, stepFor(slide.index));
+      });
+      nav.list.appendChild(row);
+      navRows.push(row);
+    }
+    navButton = h('button', 'top-btn', '☰ Slides');
+    navButton.id = 'nav-btn';
+    navButton.type = 'button';
+    navButton.addEventListener('click', () => toggleOverlay(nav));
+    topbar.appendChild(navButton);   // the P4 animation button goes to its left
+    refreshDevUi();
+  }
 
+  function slideProblems(index) {
+    return problems.filter(p => p.slide === index)
+      .map(p => ({ ...p, at: problemStep(p) }))
+      .sort((x, y) => x.at - y.at);
+  }
+
+  /** R6-4: with ?dev, a slide with problems opens at the first step that shows one;
+      otherwise step memory applies (undefined = let goTo restore/start the slide). */
+  function stepFor(index) {
+    if (!DEV) return undefined;
+    const list = slideProblems(index);
+    return list.length ? Math.min(list[0].at, slides[index].N) : undefined;
+  }
+
+  function revealRow(panel, row) {
+    const top = row.offsetTop, bottom = top + row.offsetHeight;
+    if (top < panel.scrollTop) panel.scrollTop = top - 12;
+    else if (bottom > panel.scrollTop + panel.clientHeight) panel.scrollTop = bottom - panel.clientHeight + 12;
+  }
+
+  function renderNav() {
+    refreshPanels();
+    if (DEV) renderNavProblems();
+    const row = navRows[state.current];
+    if (row) revealRow(nav.panel, row);
+  }
+
+  function renderNavProblems() {
+    const deckWide = problems.filter(p => p.slide === null);
+    navDeckBox.hidden = !deckWide.length;
+    const deckList = h('ul', 'row-problems');
+    deckWide.forEach(p => deckList.appendChild(h('li', '', p.message)));
+    navDeckBox.replaceChildren(h('div', 'row-num', 'Deck'), deckList);
+    for (const row of navRows) {
+      const list = slideProblems(Number(row.dataset.slide));
+      const info = row.querySelector('.row-info');
+      const old = info.querySelector('.row-problems');
+      if (old) old.remove();
+      row.classList.toggle('has-problems', list.length > 0);
+      if (list.length) {
+        const ul = h('ul', 'row-problems');
+        list.forEach(p => ul.appendChild(h('li', '', `step ${p.at} · ${p.message}`)));
+        info.appendChild(ul);
+      }
+    }
+  }
+
+  function buildBadge() {
     badge = h('div');
     badge.id = 'deck-warnings';
     const toggle = h('button', 'dw-toggle');
@@ -583,58 +711,22 @@
   }
 
   function refreshDevUi() {
-    if (!devButton) return;
+    if (!DEV) return;
     const n = warnings.length;
-    devButton.classList.toggle('has-problems', n > 0);
-    badge.className = (n ? 'has-warnings' : 'no-warnings') + (badge.classList.contains('open') ? ' open' : '');
-    badge.querySelector('.dw-toggle').textContent = n ? `⚠ ${n} deck warning${n === 1 ? '' : 's'}` : '✓ no deck warnings';
-    badge.querySelector('.dw-list').replaceChildren(...warnings.map(w => h('li', '', w)));
-    if (openOverlay === devPanel) renderDevPanel();
+    if (navButton) navButton.classList.toggle('has-problems', n > 0);
+    if (badge) {
+      badge.className = (n ? 'has-warnings' : 'no-warnings') + (badge.classList.contains('open') ? ' open' : '');
+      badge.querySelector('.dw-toggle').textContent = n ? `⚠ ${n} deck warning${n === 1 ? '' : 's'}` : '✓ no deck warnings';
+      badge.querySelector('.dw-list').replaceChildren(...warnings.map(w => h('li', '', w)));
+    }
+    if (nav && openOverlay === nav) renderNavProblems();
   }
 
-  function renderDevPanel() {
-    const scroll = devPanel.panel.scrollTop;
-    const groups = new Map();
-    for (const p of problems) {
-      const key = p.slide === null ? 'deck' : p.slide;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(p.message);
-    }
-    const rows = [];
-    if (!problems.length) rows.push(h('div', 'deck-panel-empty', 'No problems found.'));
-    if (groups.has('deck')) {
-      const row = h('div', 'deck-row deck-row--deck');
-      const icon = h('div', 'deck-thumb deck-thumb--deck');
-      icon.style.width = THUMB_WIDTH + 'px';
-      icon.style.height = (THUMB_WIDTH * cfg.canvas.height / cfg.canvas.width) + 'px';
-      icon.innerHTML = ICON_BOLT;
-      row.append(icon, rowInfo('Deck', 'Configuration and structure', groups.get('deck')));
-      rows.push(row);
-    }
-    const slideKeys = [...groups.keys()].filter(k => k !== 'deck').sort((a, b) => a - b);
-    for (const index of slideKeys) {
-      const slide = slides[index];
-      const row = h('div', 'deck-row');
-      row.dataset.slide = index;
-      row.classList.toggle('is-current', index === state.current);
-      row.append(thumbnail(index), rowInfo(slide ? slideNumberText(slide) : `Slide ${index + 1}`,
-                                           slide ? slide.title : '', groups.get(index)));
-      row.addEventListener('click', () => {
-        closeOverlay(devPanel);
-        if (slide) goTo(index, slide.N);   // final step: where every layer is in place
-      });
-      rows.push(row);
-    }
-    devPanel.list.replaceChildren(...rows);
-    devPanel.panel.scrollTop = scroll;
-  }
-
-  function rowInfo(num, label, messages) {
-    const info = h('div', 'row-info');
-    const list = h('ul', 'row-problems');
-    messages.forEach(m => list.appendChild(h('li', '', m)));
-    info.append(h('div', 'row-num', num), h('div', 'row-label', label), list);
-    return info;
+  function buildHint() {
+    const hint = h('div', '', '← → to navigate');
+    hint.id = 'deck-hint';
+    stage.appendChild(hint);
+    setTimeout(() => hint.classList.add('faded'), HINT_MS);
   }
 
   // ── Input (SPEC §8.4, decision R4-4) ──────────────────────────────────────
@@ -679,15 +771,17 @@
     }
     // Rendered per slide so formula problems are attributed to their slide. With
     // throwOnError:false KaTeX shows unknown commands in red instead of failing, so each
-    // formula is also parsed strictly: one that parses in neither mode is reported.
+    // formula is also parsed strictly: one that parses in neither mode is reported, and the
+    // rendered element is looked up afterwards (via its TeX annotation) to know its step.
     for (const slide of slides) {
+      const failing = [];
       const check = math => {
         let error;
         for (const displayMode of [false, true]) {
           try { window.katex.renderToString(math, { displayMode, throwOnError: true }); return math; }
           catch (err) { error = err; }
         }
-        warn(`formula error in "${math}": ${error && error.message ? error.message : error}`, { slide: slide.index });
+        failing.push({ math, error });
         return math;
       };
       window.renderMathInElement(slide.el, {
@@ -696,6 +790,16 @@
         preProcess: check,
         errorCallback: (message, err) => warn(`formula error: ${message} ${err || ''}`.trim(), { slide: slide.index }),
       });
+      const rendered = [...slide.el.querySelectorAll('.katex, .katex-error')];
+      const source = k => {
+        const ann = k.querySelector('annotation[encoding="application/x-tex"]');
+        return (ann ? ann.textContent : k.textContent).trim();
+      };
+      for (const { math, error } of failing) {
+        const i = rendered.findIndex(k => source(k) === math.trim());
+        const el = i >= 0 ? rendered.splice(i, 1)[0] : undefined;
+        warn(`formula error in "${math}": ${error && error.message ? error.message : error}`, { slide: slide.index, el });
+      }
     }
   }
 
@@ -711,7 +815,7 @@
     dev: DEV,
     preview: PREVIEW,
     warnings,
-    get problems() { return problems.map(p => ({ ...p })); },
+    get problems() { return problems.map(p => ({ message: p.message, slide: p.slide, step: problemStep(p) })); },
     get slides() { return slides.map(summary); },
     get state() {
       const s = slides[state.current];
@@ -739,11 +843,13 @@
       if (!deckEl) throw new Error('no <main id="deck"> element found');
       buildCanvas(deckEl);
       if (!PREVIEW) buildTopbar();
-      if (DEV) buildDevUi();
+      if (DEV) buildBadge();
       parseSlides(deckEl);
       renderMath();
       renderDates();
       fit();
+      fitCoverBox();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitCoverBox);
       window.addEventListener('resize', fit);
       slides.forEach(s => { s.el.inert = true; });
       if (!slides.length) warn('the deck has no slides');
@@ -752,6 +858,8 @@
         if (cfg.date === 'auto') scheduleMidnightRefresh();
         document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
+        buildNavigator();
+        buildHint();
       }
     } catch (err) {
       warn(`engine failed to start: ${err && err.message ? err.message : err}`);

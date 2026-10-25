@@ -218,7 +218,7 @@ const DECK = {
 };
 ```
 
-Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, invalid step attributes, formula errors, etc.) are always logged with `console.warn` and collected in `Deck.warnings`. The red "deck warnings" badge (bottom‑left, expandable list, dismissible) is shown **only when the deck is opened with `?dev`** in the URL (decision R4‑1); in dev mode a green "✓ no deck warnings" badge confirms a clean deck. In addition, dev mode shows the **⚡ problems button** with its panel (§12.7). The live talk and preview mode never show either.
+Validation: the engine checks the config at start‑up. Problems (unknown animation id, missing title, invalid step attributes, formula errors, etc.) are always logged with `console.warn` and collected in `Deck.warnings`. The red "deck warnings" badge (bottom‑left, expandable list, dismissible) is shown **only when the deck is opened with `?dev`** in the URL (decision R4‑1); in dev mode a green "✓ no deck warnings" badge confirms a clean deck. In addition, dev mode shows every problem inside the **☰ Slides navigator** and turns its button red (§12.6). The live talk and preview mode never show either.
 
 ---
 
@@ -377,7 +377,7 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 
 ## 11. Preview mode (thumbnails)
 
-- **Implemented** (pulled forward from P2 for the ⚡ panel). URL: `<deck>.html?preview=<index or slide id>[&step=<k>]` (default *k* = final step N, i.e. "show the final step of all slides").
+- **Implemented** (used by the navigator thumbnails). URL: `<deck>.html?preview=<index or slide id>[&step=<k>]` (default *k* = final step N, i.e. "show the final step of all slides").
 - In preview mode the engine renders **only** that slide and hides the top buttons, hint, warnings badge, navigator and picker. It builds **no** thumbnails (no recursion), registers no keyboard handling, and still loads animation iframes on animation slides so their preview is real.
 - Thumbnails are iframes at canvas size, scaled into a box of width 112 px (height by canvas ratio).
 - **Loading strategy:** at start‑up the navigator list and all thumbnail iframes are created **one after another** (next starts when the previous fires `load`). They stay alive for the session, so opening the navigator is instant and the presentation's first slide is never slowed down.
@@ -392,6 +392,8 @@ The iframe is replaced by a placeholder of the same box (full canvas on animatio
 - Top‑right, below the buttons (`top:62px; right:16px`): `course.title` ⏎ `course.type, course.semester` (white, 13px, text‑shadow).
 - **Blue box** (`--eth`), anchored `left:0; bottom:28px`, padding `40px 52px 44px 44px`, containing title (`--fs-cover-title`, 700), subtitle (`--fs-sub`, 78% white; omitted if empty), presenter (`--fs-body`, 700).
   - **Size to content:** `width: max-content; max-width: DECK.cover.boxMaxWidth (58%)`; height `auto`. A short title gives a narrow box, a long one wraps inside the cap. `text-wrap: balance` on the title gives even line lengths. The box grows only as tall as title + subtitle + presenter need.
+  - **Implemented by measurement:** CSS `max-content` alone keeps the full max‑width as soon as the title wraps, so after layout (and again when fonts are ready) the engine measures the longest rendered line of title, subtitle and presenter (`Range.getClientRects()`) and sets the box width to that line plus padding. Result: the box is exactly as wide as its widest line, never wider than `boxMaxWidth`.
+  - Content written into the title `<section>` is ignored (deck warning); the cover is always rendered from `DECK`.
 - No footer, no slide title, no default padding. The top buttons are present.
 
 ### 12.2 Table of contents slide
@@ -406,21 +408,25 @@ Pure `#000`, letterbox black. Only the top buttons are visible. Navigator label 
 - Date: `DECK.date === 'auto'` → today's local date, refreshed automatically at midnight. Otherwise the fixed string is used.
 
 ### 12.5 Top buttons
-A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the canvas: `[⚡ dev only] [animation button] [☰ Slides]` (row implemented; ⚡ see §12.7). Styling as original (`rgba(31,64,122,.88)`, white, 13px, 600, radius 8px, blur). Present on **every** slide (title and black included), above overlays (z‑index), hidden only in preview mode.
+A fixed right‑aligned flex row (`top:16px; right:16px; gap:8px`) inside the canvas: `[▶ Animation] [☰ Slides]` (implemented; the animation button follows in P4). Styling as original (`rgba(31,64,122,.88)`, white, 13px, 600, radius 8px, blur). Present on **every** slide (title and black included), above overlays (z‑index), hidden only in preview mode.
+- The "← → to navigate" hint sits bottom‑centre inside the canvas and fades out after 4 s (not in preview mode).
 
 ### 12.6 Slides navigator
 - Opens/closes via `☰ Slides`, click on the backdrop, or Esc.
 - Panel "All Slides", one row per slide: thumbnail (§11), number line (`Slide 7` / `Appendix 1` / `–`) and title (slide title text). The subtitle line from the original is dropped (decision: number + title only).
 - The current slide is highlighted and scrolled into view on open. Clicking a row jumps there (step memory rules apply) and closes the panel.
 
-### 12.7 Dev problems panel (⚡, only with `?dev`)
-- In dev mode a **symbol‑only button** (lightning‑bolt SVG, no text, `aria-label` only) sits **leftmost** in the top‑right button row: `[⚡] [▶ Animation] [☰ Slides]` (decision R5‑4). It is red when the deck has problems and ETH blue when it is clean. Without `?dev` it does not exist.
-- Clicking it opens the **"Deck problems" panel**, built on the same overlay/panel component as the slides navigator (§12.6):
-  - first row **Deck**: configuration and structure problems that belong to no single slide;
-  - then one row **per affected slide**, in slide order: live preview iframe (`?preview=<index>`, final step), slide number + title, and the list of that slide's problems (decision R5‑2: *all* warnings, not only missing resources).
-- Clicking a slide row closes the panel and jumps to that slide at its **final step**. Reopening keeps the scroll position, so problems can be worked through one after another. The current slide's row is highlighted. Esc / click outside / ⚡ again closes it; while it is open, navigation keys are ignored.
-- The panel re‑renders when it is opened and when new problems appear (e.g. a hook that throws on a later slide). Every warning carries the index of the slide it belongs to (`Deck.problems` → `{ message, slide }`).
-- The bottom‑left badge (§7) stays as a summary (decision R5‑3).
+- **Implemented.** Thumbnails for all slides are created right after start‑up and load one after another; they stay alive for the session.
+- **Dev mode (`?dev`) — the navigator doubles as the problem list** (decisions R6‑1…R6‑4):
+  - the ☰ Slides button is red while the deck has problems (ETH blue when clean); without `?dev` it never changes;
+  - a red **Deck** box above the list shows problems that belong to no single slide (configuration, structure);
+  - every slide row with problems gets a red border and lists its problems, each prefixed with the **step at which it becomes visible** (`step 3 · formula error …`), sorted by step;
+  - clicking a row with problems jumps to the **first step that shows a problem**; clicking a clean row uses step memory (as without `?dev`);
+  - the step of a problem is derived from its element (the latest start of the step layers around it), from the step a hook threw at, or is 1 for slide‑level problems. `Deck.problems` exposes `{ message, slide, step }`.
+  - the bottom‑left badge (§7) stays as a summary.
+
+### 12.7 (removed)
+The separate ⚡ dev panel from the P1 follow‑up was replaced by the dev mode of the navigator (§12.6, decision R6‑1), so there is only one slide list to maintain.
 
 ---
 
@@ -527,7 +533,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 |---|---|---|
 | **P0 Setup** ✅ done | Repo layout (§4.2), `engine/` skeleton, fetch + commit vendor files (KaTeX 0.16.47, Inter, Fira Code, DM fonts) and licences, `tools/build.py`, tests. | Vendor files hash‑locked; build produces both templates (smoke‑test content only); verified offline in headless Edge (no network, all fonts + KaTeX render). |
 | **P1 Core engine** ✅ done | Canvas scaling + letterbox, slide parsing, content frame, footer/numbering/date, crossfade, keyboard, **step engine + step memory**, hooks, warnings badge. | A test deck with 5 stepped content slides behaves per §8.3/§8.4; numbers/dates correct; resizing keeps layout identical. |
-| **P2 Special slides + navigator** | Title slide (auto‑sized box), ☰ Slides button and navigator. *Already done during P1 follow‑up:* TOC, black slide, appendix numbering, top‑button row, shared overlay/panel component, preview mode, staggered thumbnails, ⚡ dev panel. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
+| **P2 Special slides + navigator** ✅ done | Title slide (measured shrink‑to‑fit box), ☰ Slides button + navigator with live thumbnails, dev problems inside the navigator, hint. Earlier: TOC, black slide, appendix numbering, top‑button row, overlay component, preview mode. | Cover matches the original visually; box shrinks/grows with title length; navigator shows final steps; previews do not recurse. |
 | **P3 Assets** | `img` error handling, `data-bg`, placeholders, cover fallback. | Deleting `images/` shows correctly sized, labelled placeholders everywhere; no console errors other than the expected 404s. |
 | **P4 Animations** | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
 | **P5 Look & components** | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
@@ -565,9 +571,14 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑8 | Plain text inside `.slide-content` defaults to `--fs-body` / line‑height 1.5. | P1 |
 | D‑9 | Engine tests run fixture decks in headless Edge/Chrome via `file://` with network disabled (`tools/tests/browser.py`); skipped if no browser is installed. | P1 |
 | R5‑1 | Step 1 = slide title only; unmarked content appears at step 2; `data-step="1"` puts content into step 1; containers with stepped descendants stay structural. Applies to content and TOC slides. | Round 5 |
-| R5‑2 | ⚡ panel lists all warnings, grouped per slide (plus a Deck row), with preview iframe and jump. | Round 5 |
-| R5‑3 | The bottom‑left warnings badge stays alongside the ⚡ button. | Round 5 |
-| R5‑4 | ⚡ is leftmost in the top‑right row, symbol only, `?dev` only; clicking a row jumps to the slide's final step and closes the panel. | Round 5 |
+| ~~R5‑2~~ | ~~⚡ panel lists all warnings, grouped per slide (plus a Deck row), with preview iframe and jump.~~ Superseded by R6‑1/R6‑2. | Round 5 |
+| R5‑3 | The bottom‑left warnings badge stays (now alongside the dev navigator). | Round 5 |
+| ~~R5‑4~~ | ~~⚡ is leftmost in the top‑right row, symbol only, `?dev` only; clicking a row jumps to the slide's final step.~~ Superseded by R6‑1/R6‑4. | Round 5 |
+| R6‑1 | No separate ⚡ panel: ☰ Slides is the only navigator; `?dev` adds the problem information to it. | Round 6 |
+| R6‑2 | Deck‑wide problems in a red "Deck" box above the slide list (dev only, only when present). | Round 6 |
+| R6‑3 | In `?dev` the ☰ Slides button is red when there are problems; no "problems only" filter. | Round 6 |
+| R6‑4 | Row click: normal → step memory; `?dev` + problems → first step at which a problem is visible; `?dev` + clean → step memory. | Round 6 |
+| D‑10 | Cover box width is measured after layout/fonts (longest rendered line + padding); title uses `text-wrap: balance`. | P2 |
 | D‑5 | Vendor sources: jsDelivr (`katex`, `@fontsource(-variable)/*` 5.3.0), subsets latin, latin‑ext, greek(+ext); Inter as variable font (100–900). | P0 |
 | D‑6 | Engine version stays 0.x during P0–P5 and becomes 1.0.0 at the end of P6. | P0 |
 | R2‑1 | Canvas 1280×800 (16:10); all original px values × 1.125. | Round 2 |
