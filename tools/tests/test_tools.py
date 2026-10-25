@@ -42,7 +42,7 @@ class ToolTestCase(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="deck-tools-"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.folder = self.tmp / "Talk"
-        proc = run("new.py", str(self.folder), stdin=ANSWERS)
+        proc = run("new.py", "Talk", "--parent", str(self.tmp), stdin=ANSWERS)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.deck = self.folder / "Talk_presentation.html"
 
@@ -68,9 +68,15 @@ class NewTest(ToolTestCase):
         self.assertIn(f"engine v{build.engine_version()}", claude)
         self.assertEqual((self.folder / "AUTHORING.md").read_text(encoding="utf-8"), build.authoring_text(build.engine_version()))
 
-    def test_refuses_existing_presentation_and_bad_prefix(self):
-        self.assertEqual(run("new.py", str(self.folder), stdin=ANSWERS).returncode, 2)
-        self.assertEqual(run("new.py", str(self.tmp / "Other"), stdin="bad prefix!\n").returncode, 2)
+    def test_refuses_existing_project_and_bad_names(self):
+        self.assertEqual(run("new.py", "Talk", "--parent", str(self.tmp), stdin=ANSWERS).returncode, 2)
+        self.assertEqual(run("new.py", "bad name!", "--parent", str(self.tmp)).returncode, 2)
+        self.assertEqual(run("new.py", "Other", "--parent", str(self.tmp), stdin="bad prefix!\n").returncode, 2)
+
+    def test_default_location_is_presentations_folder(self):
+        import _deckfolder
+        self.assertEqual(_deckfolder.PRESENTATIONS, ROOT / "presentations")
+        self.assertIn("presentations", run("new.py", "--help").stdout)
 
 
 class UpdateTest(ToolTestCase):

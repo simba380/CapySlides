@@ -62,16 +62,18 @@
     <div><code>check.py</code> after every change</div>
     <div><code>pack.py</code> makes the zip to submit</div>
   </div>
-  <p>Old presentation and a newer template? <code>update.py</code> brings it to the newest engine first.</p>
+  <p>All projects live in <code>presentations/</code> (each folder is self-contained and can be zipped on its own);
+    <code>presentations/EfficientNet/</code> is a complete example. Old presentation and a newer template?
+    <code>update.py</code> brings it to the newest engine first.</p>
 
   <h2 id="cli">Command-line tools</h2>
 
   <div class="card" id="tool-new">
     <h3>tools/new.py <span class="when">start a presentation</span></h3>
-    <p>Creates a self-contained presentation folder. Asks for folder, file prefix, title, subtitle, presenter,
+    <p>Creates a self-contained project in <code>presentations/&lt;name&gt;</code>. Asks for the project name, file prefix, title, subtitle, presenter,
       course title/type, semester and — one prompt per animation, empty answer = done — animation names.
       Empty answers keep the template placeholders.</p>
-    <pre>python tools/new.py "D:\Talks\MyTalk"</pre>
+    <pre>python tools/new.py MyTalk          # → presentations\MyTalk\  (name asked if omitted)</pre>
     <p>Creates <code>MyTalk_presentation.html</code>, one <code>&lt;name&gt;_animations.html</code> per animation
       (already registered in <code>DECK.animations</code>), <code>images/eth_zurich_aerial.png</code>, and the AI helpers
       <code>CLAUDE.md</code> + <code>AUTHORING.md</code>. Answers can be piped in, one per line.</p>
@@ -82,8 +84,8 @@
     <p>Opens the deck headless in Chrome/Edge (offline) and lists everything the <code>?dev</code> view would show,
       per slide and step: missing images/animations, invalid step attributes, formula errors, files outside the folder, …
       Also reports <code>&lt;img&gt;</code> tags with missing/wrong <code>width</code>/<code>height</code> and outdated engine versions.</p>
-    <pre>python tools/check.py "D:\Talks\MyTalk"          # folder or deck file
-python tools/check.py "D:\Talks\MyTalk" --json   # machine-readable</pre>
+    <pre>python tools/check.py "presentations\MyTalk"          # folder or deck file
+python tools/check.py "presentations\MyTalk" --json   # machine-readable</pre>
     <p>Exit code 0 = nothing to fix, 1 = problems, 2 = wrong arguments.</p>
   </div>
 
@@ -91,7 +93,7 @@ python tools/check.py "D:\Talks\MyTalk" --json   # machine-readable</pre>
     <h3>tools/image_sizes.py <span class="when">after adding or changing images</span></h3>
     <p>Writes each image's natural pixel size into its <code>&lt;img&gt;</code> tag, so a missing image still keeps its
       place and shape. Writes a <code>.bak</code> backup.</p>
-    <pre>python tools/image_sizes.py "D:\Talks\MyTalk\MyTalk_presentation.html"
+    <pre>python tools/image_sizes.py "presentations\MyTalk\MyTalk_presentation.html"
 python tools/image_sizes.py "…_presentation.html" --check   # report only, exit 1 if wrong</pre>
   </div>
 
@@ -100,20 +102,20 @@ python tools/image_sizes.py "…_presentation.html" --check   # report only, exi
     <p>Replaces only the generated engine blocks (deck: <code>DECK-ENGINE</code>; animations: <code>ANIM-VENDOR</code>,
       <code>ANIM-CONTRACT</code>), verifies that nothing else changed, writes <code>.bak</code> backups and refreshes
       <code>CLAUDE.md</code> / <code>AUTHORING.md</code>. Refuses to downgrade.</p>
-    <pre>python tools/update.py "D:\Talks\MyTalk"
-python tools/update.py "D:\Talks\MyTalk" --dry-run   # only report
-python tools/update.py "D:\Talks\MyTalk" --force     # allow a downgrade</pre>
+    <pre>python tools/update.py "presentations\MyTalk"
+python tools/update.py "presentations\MyTalk" --dry-run   # only report
+python tools/update.py "presentations\MyTalk" --force     # allow a downgrade</pre>
   </div>
 
   <div class="card" id="tool-pack">
     <h3>tools/pack.py <span class="when">submit</span></h3>
-    <p>Writes <code>&lt;prefix&gt;.zip</code> next to the folder (or into <code>--out</code>) with only the presentation
+    <p>Writes <code>&lt;prefix&gt;.zip</code> next to the folder, e.g. <code>presentations\MyTalk.zip</code> (or into <code>--out</code>) with only the presentation
       files: deck, animation files, images and anything else in the folder — without <code>CLAUDE.md</code>,
       <code>AUTHORING.md</code>, <code>*.bak</code>, zips and hidden files. Before zipping, a copy is checked in a temporary
       folder outside the repository, so the zip is proven to work on its own and offline.</p>
-    <pre>python tools/pack.py "D:\Talks\MyTalk"
-python tools/pack.py "D:\Talks\MyTalk" --out "D:\Submissions"
-python tools/pack.py "D:\Talks\MyTalk" --force   # zip even with problems</pre>
+    <pre>python tools/pack.py "presentations\MyTalk"
+python tools/pack.py "presentations\MyTalk" --out "D:\Submissions"
+python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</pre>
   </div>
 
   <h2 id="browser">In the browser</h2>
@@ -162,7 +164,7 @@ python tools/pack.py "D:\Talks\MyTalk" --force   # zip even with problems</pre>
   <h2 id="dev">Repository development</h2>
   <div class="card" id="tool-build">
     <h3>tools/build.py <span class="when">after changing engine/</span></h3>
-    <p>Generates <code>template/</code>, <code>examples/*/…_presentation.html</code> and <code>AUTHORING.md</code> from the engine
+    <p>Generates <code>template/</code> and <code>AUTHORING.md</code> from the engine
       sources. <code>--check</code> exits 1 if anything generated is stale.</p>
     <pre>python tools/build.py
 python tools/build.py --check</pre>

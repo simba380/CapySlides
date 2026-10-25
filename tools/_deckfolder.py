@@ -11,6 +11,7 @@ import _blocks  # noqa: E402
 import build  # noqa: E402
 
 ROOT = build.ROOT
+PRESENTATIONS = ROOT / "presentations"   # all presentation projects (each one self-contained)
 PREFIX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 POINTER_BEGIN = "<!-- CUSTOMPRESENTATIONS:BEGIN"
 POINTER_END = "<!-- CUSTOMPRESENTATIONS:END -->"

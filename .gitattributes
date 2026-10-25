@@ -4,7 +4,7 @@ engine/vendor/** -text
 template/*.html -text
 *.png binary
 *.woff2 binary
-# Built example decks: generated with LF endings, keep them byte-identical.
-examples/*/*_presentation.html -text
 # Generated guide: keep byte-identical to the build output.
 AUTHORING.md -text
+# Presentation projects: keep decks byte-exact (update.py and check.py compare them).
+presentations/**/*.html -text

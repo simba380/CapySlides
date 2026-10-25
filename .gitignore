@@ -3,3 +3,5 @@ __pycache__/
 *.bak
 .tmp/
 scratch/
+# Submission zips and backups inside presentation projects
+presentations/*.zip

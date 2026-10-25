@@ -18,6 +18,7 @@ TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS.parent))
 sys.path.insert(0, str(TESTS))
 import browser  # noqa: E402
+import _blocks  # noqa: E402
 import build  # noqa: E402
 
 FIXTURES = TESTS / "fixtures"
@@ -361,7 +362,9 @@ class NavigatorTest(unittest.TestCase):
           o.devBtn = !!$('dev-btn');
           o.hint = $('deck-hint').textContent;
           const frames = [...document.querySelectorAll('#nav-overlay iframe')];
-          o.loadingAtStart = frames.filter(f => f.getAttribute('src')).length;   // one at a time
+          const queued = [...frames, ...document.querySelectorAll('#anim-overlay iframe')];
+          o.loadingAtStart = queued.filter(f => f.getAttribute('src')).length;    // one at a time
+          o.animFirst = !!document.querySelector('#anim-overlay iframe')?.getAttribute('src');
           await new Promise(done => {{
             const t0 = performance.now();
             (function poll() {{
@@ -389,7 +392,8 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(r["button"], {"text": "☰ Slides", "red": False, "last": True})
         self.assertFalse(r["devBtn"])
         self.assertEqual(r["hint"], "← → to navigate")
-        self.assertEqual(r["loadingAtStart"], 1, "thumbnails start loading one at a time")
+        self.assertEqual(r["loadingAtStart"], 1, "queued frames (animations, then thumbnails) load one at a time")
+        self.assertTrue(r["animFirst"], "animation instances are queued before the navigator thumbnails")
         self.assertTrue(r["open"] and r["locked"])
         rows = r["rows"]
         self.assertEqual([row["num"] for row in rows],
@@ -834,12 +838,39 @@ class AnimationTest(unittest.TestCase):
         self.assertEqual([m["type"] for m in got if m.get("type") == "ready"], ["ready", "ready"])   # load + ping
         self.assertIn({"presetSeen": {"phi": 2}}, got)
 
-    def test_template_animation_standalone(self):
+    def test_template_animation_panel_system(self):
         r = browser.run(anim_template(), """
-          return { embedded: DeckAnim.embedded, katex: document.querySelectorAll('#formula .katex').length,
-                   bars: document.querySelectorAll('#viz rect').length, phi: document.getElementById('phi-val').textContent };
-        """, "template_animations-standalone", query="?phi=3")
-        self.assertEqual(r, {"embedded": False, "katex": 1, "bars": 1 + 6, "phi": "3"})   # input + round(2*1.2^3 + 3) layers
+          const wait = ms => new Promise(r => setTimeout(r, ms));
+          const shown = () => [...document.querySelectorAll('.panel.active')]
+            .sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x).map(p => p.dataset.panel);
+          const click = id => document.querySelector(`.scard[data-panel="${id}"] .scard-header`).click();
+          const o = { embedded: DeckAnim.embedded, order: Panels.order };
+          await wait(600);
+          o.default = shown();
+          o.bars = document.querySelectorAll('#scaling-viz rect').length;
+          o.phi = document.getElementById('phi-val').textContent;
+          click('notes'); click('grid'); await wait(600);
+          o.three = { queue: Panels.openIds, shown: shown() };        // opened out of order, shown in sidebar order
+          click('formula'); await wait(600);
+          o.fourth = { queue: Panels.openIds, shown: shown() };       // the oldest (scaling) closed
+          o.katex = document.querySelectorAll('#formula .katex').length;
+          o.cards = [...document.querySelectorAll('.scard.open')].map(c => c.dataset.panel);
+          click('grid'); await wait(100);
+          o.closed = Panels.openIds;
+          applyPreset({ open: ['grid', 'scaling'] }); await wait(600);
+          o.preset = shown();
+          return o;
+        """, "template_animations-panels", query="?phi=3", budget_ms=8000)
+        self.assertFalse(r["embedded"])
+        self.assertEqual(r["order"], ["scaling", "formula", "grid", "notes"])
+        self.assertEqual(r["default"], ["scaling"])                         # first panel by default
+        self.assertEqual((r["bars"], r["phi"]), (1 + 6, "3"))               # input + round(2*1.2^3 + 3) layers
+        self.assertEqual(r["three"], {"queue": ["scaling", "notes", "grid"], "shown": ["scaling", "grid", "notes"]})
+        self.assertEqual(r["fourth"], {"queue": ["notes", "grid", "formula"], "shown": ["formula", "grid", "notes"]})
+        self.assertEqual(r["katex"], 1)
+        self.assertEqual(r["cards"], ["formula", "grid", "notes"])
+        self.assertEqual(r["closed"], ["notes", "formula"])                 # clicking an open card closes it
+        self.assertEqual(r["preset"], ["scaling", "grid"])                  # URL order does not matter
 
 
 @unittest.skipUnless(browser.find_browser(), "no Chromium-based browser found")
@@ -937,16 +968,39 @@ class ComponentsTest(unittest.TestCase):
         unexpected = [w for w in r if "not found (images/your_" not in w]
         self.assertEqual(unexpected, [])
 
-    def test_showcase_and_template_have_no_warnings(self):
-        folder = browser.FIXTURES_OUT / "showcase"
-        shutil.copytree(build.EXAMPLES / "components" / "images", folder / "images", dirs_exist_ok=True)
-        page = (build.EXAMPLES / "components" / "components_presentation.html").read_text(encoding="utf-8")
-        r = probe("showcase", "await new Promise(r => setTimeout(r, 500)); return { w: Deck.warnings, s: Deck.slides.map(s => [s.id, s.N]) };",
-                  page=page, subdir="showcase")
+    def test_efficientnet_project_on_current_engine(self):
+        # presentations/EfficientNet is a normal project; run a copy upgraded to the current engine
+        # (exactly what tools/update.py does), so engine changes cannot silently break it.
+        project = build.ROOT / "presentations" / "EfficientNet"
+        folder = browser.FIXTURES_OUT / "efficientnet"
+        shutil.copytree(project / "images", folder / "images", dirs_exist_ok=True)
+        version = build.engine_version()
+        deck = _blocks.replace((project / "EfficientNet_presentation.html").read_text(encoding="utf-8"),
+                               _blocks.DECK_ENGINE, build.deck_engine_block(version))
+        anim = (project / "EfficientNet_animations.html").read_text(encoding="utf-8")
+        for name, block in ((_blocks.ANIM_VENDOR, build.anim_vendor_block(version)),
+                            (_blocks.ANIM_CONTRACT, build.anim_contract_block(version))):
+            anim = _blocks.replace(anim, name, block)
+        self.assertNotIn("fonts.googleapis", anim)
+        self.assertNotIn("postMessage({ type: 'keydown'", anim, "the contract forwards keys, not the old code")
+        r = probe("efficientnet", """
+          await new Promise(r => setTimeout(r, 7000));
+          return { w: Deck.warnings, s: Deck.slides.map(s => [s.id, s.type, s.N, s.label]),
+                   anim: Deck.animations.map(a => a.instances.map(i => [i.kind, i.ready, i.missing])),
+                   btn: document.getElementById('anim-btn').textContent };
+        """, page=deck, subdir="efficientnet", files={"EfficientNet_animations.html": anim}, budget_ms=20000)
         self.assertEqual(r["w"], [])
-        steps = dict(r["s"])
+        self.assertEqual(len(r["s"]), 21)                                   # 20 original slides + TOC
+        types = [t for _, t, _, _ in r["s"]]
+        self.assertEqual(types.count("animation"), 5)
+        steps = {sid: n for sid, _, n, _ in r["s"]}
         self.assertEqual((steps["motivation"], steps["pimr"], steps["resolution"], steps["arms-race"], steps["constraints"]),
                          (5, 4, 5, 4, 3))
+        self.assertEqual(r["s"][-1][3], "Appendix 1")
+        self.assertTrue(all(ready and not missing for kind, ready, missing in r["anim"][0]), r["anim"])
+        self.assertEqual(r["btn"], "▶ Animation")
+
+    def test_template_has_no_warnings(self):
         r = probe("template", "return { w: Deck.warnings, t: Deck.slides.map(s => s.title) };",
                   page=build.build_outputs()["template_presentation.html"].decode("utf-8"))
         self.assertEqual(r["w"], [])

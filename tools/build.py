@@ -2,7 +2,6 @@
 
     python tools/build.py           write template/template_presentation.html,
                                     template/template_animations.html, template/images/...,
-                                    examples/*/<name>_presentation.html from their .src.html,
                                     and AUTHORING.md from engine/AUTHORING.src.md
     python tools/build.py --check   exit 1 if template/ differs from a fresh build
 
@@ -27,8 +26,6 @@ ROOT = Path(__file__).resolve().parent.parent
 ENGINE = ROOT / "engine"
 VENDOR = ENGINE / "vendor"
 TEMPLATE = ROOT / "template"
-EXAMPLES = ROOT / "examples"
-# Example decks: examples/<name>/<name>_presentation.src.html (+ images/) → <name>_presentation.html
 
 DECK_FONTS = ("Inter", "Fira Code")
 ANIM_FONTS = ("DM Sans", "DM Serif Display", "DM Mono")
@@ -264,16 +261,6 @@ def authoring_text(version: str) -> str:
             .replace("@@COMPONENTS@@", "\n".join(parts).strip()))
 
 
-def example_outputs() -> dict[str, bytes]:
-    """Return {path relative to examples/: content}: every *.src.html deck shell, built with the engine."""
-    version = engine_version()
-    outputs = {}
-    for src in sorted(EXAMPLES.glob("*/*_presentation.src.html")):
-        rel = src.relative_to(EXAMPLES).as_posix().replace(".src.html", ".html")
-        outputs[rel] = build_deck(text(src), version).encode("utf-8")
-    return outputs
-
-
 def write(outputs: dict[str, bytes], out_dir: Path) -> None:
     for rel, data in outputs.items():
         path = out_dir / rel
@@ -293,21 +280,18 @@ def main() -> int:
     args = ap.parse_args()
     try:
         outputs = build_outputs()
-        examples = example_outputs()
         guide = {"AUTHORING.md": authoring_text(engine_version()).encode("utf-8")}
     except BuildError as e:
         print(f"build failed: {e}", file=sys.stderr)
         return 1
     if args.check:
         files = [f"template/{rel}" for rel in stale(outputs, TEMPLATE)]
-        files += [f"examples/{rel}" for rel in stale(examples, EXAMPLES)]
         files += stale(guide, ROOT)
         for rel in files:
             print(f"stale: {rel}", file=sys.stderr)
         print("template up to date" if not files else "run: python tools/build.py")
         return 1 if files else 0
     write(outputs, TEMPLATE)
-    write(examples, EXAMPLES)
     write(guide, ROOT)
     return 0
 

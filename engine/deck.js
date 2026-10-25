@@ -32,7 +32,8 @@
   // Component catalog from engine/components.html (injected by tools/build.py): [{ name, from, html }].
   const COMPONENTS = __COMPONENT_CATALOG__;
   const ANIM_READY_MS = 1500;   // after an animation iframe's load event, a `ready` must have arrived …
-  const ANIM_TOTAL_MS = 4000;   // … and at the latest this long after its src was set (SPEC §9.5)
+  const ANIM_TOTAL_MS = 15000;  // … and at the latest this long after its src was set (SPEC §9.5;
+                                //   generous: a missing file already fails 1.5 s after its load event)
   const QUEUE_STEP_MS = 5000;   // a queued iframe that never fires `load` no longer blocks the queue
 
   const DEFAULTS = {
@@ -924,7 +925,7 @@
       if (anims.length === 1) { if (state.animOpen) closeAnimation(); else openAnimation(anims[0].id); }
       else toggleOverlay(picker);
     });
-    topbar.prepend(animButton);   // [▶ Animation] [☰ Slides]
+    topbar.prepend(animButton);   // [▶ Animation] [▦ Components] [☰ Slides]
     if (anims.length > 1) buildPicker();
     updateAnimButton();
   }
@@ -1445,9 +1446,9 @@
         if (cfg.date === 'auto') scheduleMidnightRefresh();
         document.addEventListener('keydown', onKeyDown);
         show(0, 'forward');
+        buildAnimations();   // first: animation instances load before the navigator thumbnails (R8-3)
         buildNavigator();
         if (DEV) buildComponentsPanel();
-        buildAnimations();
         buildHint();
       }
     } catch (err) {

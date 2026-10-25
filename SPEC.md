@@ -115,7 +115,8 @@ CustomPresentations/
 │   ├── update.py                   ← replaces the engine block in an existing deck
 │   ├── image_sizes.py              ← writes <img> width/height from the image files
 │   └── new.py                      ← scaffolds a new presentation folder
-├── examples/components/           ← showcase deck: *.src.html (edit) + images/ → built *_presentation.html
+├── presentations/                 ← the user's presentation projects (one self-contained folder each, created by tools/new.py)
+│   └── EfficientNet/               ← the original talk rebuilt with the template (complete example)
 ├── template/
 │   ├── template_presentation.html  ← built artefact: copy this to start a talk
 │   ├── template_animations.html    ← built artefact: starter animation with the contract
@@ -358,7 +359,7 @@ All messages are objects `{ ns: 'deck', v: 1, type, … }` sent with `postMessag
 | deck → anim | `preset` | `{ preset: {...} }` | optional runtime preset (animation calls `window.applyPreset(preset)` if defined) |
 
 - URL parameters: the deck passes `deck-embed=1` (and `deck-thumb=1` for picker thumbnails) plus the slide's `data-params`. Interpreting params is the animation's job (the EfficientNet `readURLParams`/`applyPreset` pattern is the recommended model and lives in the template).
-- **Missing detection:** if no `ready` arrives within **1500 ms after the iframe's `load` event** (or 4000 ms after its `src` was set), the iframe is replaced by the animation placeholder. Missing slide instances are warnings for their slide, a missing overlay instance is a deck‑wide warning (both visible in the `?dev` navigator).
+- **Missing detection:** if no `ready` arrives within **1500 ms after the iframe's `load` event** (or 15 s after its `src` was set; generous because a missing file already fails 1.5 s after its load event), the iframe is replaced by the animation placeholder. Missing slide instances are warnings for their slide, a missing overlay instance is a deck‑wide warning (both visible in the `?dev` navigator).
 - The contract also exposes `window.DeckAnim = { version, protocol, embedded, thumbnail, params }` to the animation's own code.
 - Legacy compatibility: the deck also accepts the original `{type:'keydown', key}` message. The original `{type:'applyPreset'}` is not needed. An animation **without** the snippet is treated as missing (decision R1‑4). Porting the EfficientNet animation means adding the ~15‑line snippet.
 
@@ -505,6 +506,7 @@ All components live in `@layer components` (`engine/components.css`), use the de
 - Stand‑alone page with the **contract snippet** (§9.5), its own vendored fonts/KaTeX (offline), the preset pattern (`readURLParams()` + `applyPreset(cfg)`), and one small demo animation that shows how panels/presets work.
 - Look: **EfficientNet animation style** (DM Sans / DM Serif Display / DM Mono, beige `#f5f3ee` background, paper panels, sidebar cards), with those fonts vendored inline (decision R2‑3).
 - Works on its own (opened directly) and embedded (`deck-embed=1`).
+- **Panel system (decision R13‑1), as in the EfficientNet animation:** a sidebar with one card per panel (`.scard[data-panel]` ↔ `.panel[data-panel]`); clicking a card opens/closes its panel; at most **3** panels are open and opening a 4th closes the one opened longest ago; open panels always appear left to right in **sidebar order** (CSS `order`), with the original width/opacity transitions. API: `Panels.toggle/open/onDraw/redraw/openIds`; `?open=a,b` presets (default: the first panel). The demo has four panels (scaling, formula, resolution grid, how panels work).
 - **Implemented (P4):** the file has an *ANIMATION ZONE* comment with the rules, a header (presenter/course, title, paper), a sidebar card with a φ slider, a panel with an SVG demo and a KaTeX formula, `readURLParams()` + `window.applyPreset(cfg)` (e.g. `data-params="phi=3"`), and `body.is-thumb` for picker thumbnails. The deck template contains commented examples for `DECK.animations` and an animation slide.
 
 ---
@@ -514,7 +516,7 @@ All components live in `@layer components` (`engine/components.css`), use the de
 | Tool | Purpose |
 |---|---|
 | `tools/build.py` | Reads `engine/*` + vendor files, writes `template/template_presentation.html` and `template/template_animations.html` (engine and contract blocks inlined between markers, stamped with the engine version), every `examples/*/<name>_presentation.html` from its `.src.html`, and `AUTHORING.md` from `engine/AUTHORING.src.md` + the component catalog. `--check` covers all of them. |
-| `tools/new.py [folder]` | **Interactive** (R12‑4): asks for folder, prefix, title, subtitle, presenter, course title/type, semester, then animation names one per prompt (empty = done). Writes the filled deck, one `<name>_animations.html` per animation (registered in `DECK.animations`), the cover image, and the AI helpers `CLAUDE.md` + `AUTHORING.md`. Answers can be piped in. |
+| `tools/new.py [name]` | **Interactive** (R12‑4): creates `presentations/<name>` (R13‑2; `--parent` overrides); asks for project name, prefix, title, subtitle, presenter, course title/type, semester, then animation names one per prompt (empty = done). Writes the filled deck, one `<name>_animations.html` per animation (registered in `DECK.animations`), the cover image, and the AI helpers `CLAUDE.md` + `AUTHORING.md`. Answers can be piped in. |
 | `tools/check.py <deck or folder> [--json]` | Runs each deck headless (offline) and prints every problem per slide and step (= the `?dev` view), `<img>` tags with missing/wrong sizes, and outdated engine/contract versions. Exit 1 if anything needs fixing (R12‑1). |
 | `tools/update.py <deck or folder> [--dry-run] [--force]` | Replaces the `DECK-ENGINE` block (decks) and `ANIM-VENDOR` + `ANIM-CONTRACT` blocks (animation files), verifies that everything outside the blocks is byte-identical, writes `.bak` backups, refreshes `CLAUDE.md` (managed block only) and `AUTHORING.md`. Refuses downgrades without `--force`. |
 | `tools/pack.py <folder> [--out DIR] [--force] [--no-check]` | Writes `<prefix>.zip` (top folder `<prefix>/`) with all presentation files but without `CLAUDE.md`, `AUTHORING.md`, `*.bak`, zips and hidden files; first checks a copy in a temporary folder outside the repository, so the zip is proven self-contained (R12‑5). |
@@ -569,7 +571,7 @@ Each phase ends with something demonstrable. Acceptance criteria are checked in 
 | **P4 Animations** ✅ done | Contract snippet, animation slides, 1‑animation toggle, picker for ≥ 2, persistent instances, missing‑file placeholders, key suppression while an overlay is open. | Scenarios with 0 / 1 / 3 animations (one missing) behave per §9; state persists across open/close and slide changes. |
 | **P5 Look & components** ✅ done | KaTeX auto‑render, inlined fonts, component library (§14), parity pass against the original. | Side‑by‑side screenshots of rebuilt EfficientNet slides match the original; works with Wi‑Fi off. |
 | **P6 Template + tooling + docs** ✅ done | `template_presentation.html` (title, TOC, **3 empty content slides**, black slide, 1 appendix example), `template_animations.html`, `tools/build/update/new`, `AUTHORING.md`, `CLAUDE.md`. | `tools/new` → working deck in < 1 min; `tools/update` upgrades a deck without touching the user zone. |
-| **P7 Validation port** | Port the EfficientNet deck + animation to the template as `examples/EfficientNet/`. | All 20 original slides reproduced with no per‑slide JS except the timeline hook. |
+| **P7 Validation port** ✅ done | The EfficientNet talk rebuilt as a normal project `presentations/EfficientNet/`, created with `tools/new.py` and edited like a user would: TOC, all 20 original slides (content slides with the components, 5 animation slides with the original presets), the original animation ported into the project's animation file (vendored fonts/KaTeX + contract; its own key forwarding removed). | `check.py`: no problems; all animation instances ready; side‑by‑side screenshots match the original; `pack.py` produces a verified zip. |
 
 ---
 
@@ -635,7 +637,7 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R10‑1 | Steps are 0‑based: step 0 = title (+ `data-step="0"`), explicit steps 1…k, final step k+1 = unmarked content. `data-steps` is the number of steps. | Round 10 |
 | R10‑2 | The template's example titles are numbered after their footer number: `Slide 3 – title` … `Slide 5 – title`, `Appendix 1 – title`. | Round 10 |
 | R11‑1 | Components get their own `?dev`-only `▦ Components` button and wider panel (title, live example, folded HTML) instead of a section in the Slides panel; replaces the earlier "Components section in ☰ Slides" idea (R9‑2). | Round 11 |
-| R11‑2 | The showcase deck lives in `examples/components/` and rebuilds the EfficientNet content slides with the components. | Round 11 |
+| ~~R11‑2~~ | ~~Showcase deck in `examples/components/`.~~ Superseded by R13‑3. | Round 11 |
 | R11‑3 | Python code blocks are coloured automatically (`data-lang="python"`); hand-coloured blocks and other languages use the token classes. | Round 11 |
 | D‑14 | Parity fixes: timeline image `width:0; min-width:100%` (as wide as the name, no JS); data tables line-height 1.2 (compact 1.35). | P5 |
 | R12‑1 | `tools/check.py` reports the `?dev` problems from the command line (exit 1 if any). | Round 12 |
@@ -644,3 +646,8 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R12‑4 | `tools/new.py` is interactive, including animation names (one prompt each, empty = done). | Round 12 |
 | R12‑5 | `tools/pack.py` builds the submission zip without AI helpers, verified in a temp folder outside the repo. | Round 12 |
 | R12‑6 | `TOOLS.html` is the central list of all commands and helpers. | Round 12 |
+| R13‑1 | The starter animation (`template_animations.html`) has the EfficientNet panel system: sidebar cards ↔ panels, max 3 open (oldest closes), panels in sidebar order. | Round 13 |
+| R13‑2 | All presentation projects live in `CustomPresentations/presentations/`; `tools/new.py` creates them there. Each project stays self-contained. | Round 13 |
+| R13‑3 | `presentations/EfficientNet/` (the full rebuild, made like a normal project) replaces `examples/components/`; the example build step is removed. | Round 13 |
+| R13‑4 | The ported deck gets a TOC with the talk's sections (slide numbers shift by one). | Round 13 |
+| D‑15 | Animation overlay instances are queued before the navigator thumbnails; the overall handshake timeout is 15 s. Engine 1.0.1. | P7 |

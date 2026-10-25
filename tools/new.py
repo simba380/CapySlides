@@ -1,10 +1,11 @@
-"""Create a new, self-contained presentation folder from the template (asks for the details).
+"""Create a new presentation project in presentations/<name> (asks for the details).
 
-    python tools/new.py [folder]
+    python tools/new.py [name]
 
-Asks for: folder (if not given), file prefix, title, subtitle, presenter, course title/type,
-semester, and the names of animations (one per prompt, empty answer = done). Empty answers keep
-the template's placeholder. The folder gets:
+Asks for: project name (if not given), file prefix, title, subtitle, presenter, course
+title/type, semester, and the names of animations (one per prompt, empty answer = done). Empty
+answers keep the template's placeholder. Projects live in CustomPresentations/presentations/
+(--parent DIR creates it elsewhere). The project folder is self-contained and gets:
 
     <prefix>_presentation.html     the deck (engine inlined, works offline)
     <name>_animations.html         one per animation name, registered in DECK.animations
@@ -88,19 +89,20 @@ def fill_animation(template: str, name: str, presenter: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("folder", nargs="?", type=Path, help="folder for the new presentation (asked if omitted)")
+    ap.add_argument("name", nargs="?", help="project name = folder name in presentations/ (asked if omitted)")
+    ap.add_argument("--parent", type=Path, default=df.PRESENTATIONS, help=f"where projects live (default: {df.PRESENTATIONS})")
     args = ap.parse_args(argv)
 
-    folder = args.folder or Path(ask("Folder for the new presentation"))
-    if not str(folder).strip():
-        print("error: a folder is required", file=sys.stderr)
+    name = (args.name or ask("Project name (letters, digits, _ and -)")).strip()
+    if not df.PREFIX_RE.match(name):
+        print(f"error: invalid project name {name!r} (use letters, digits, _ and -)", file=sys.stderr)
         return 2
-    folder = folder.expanduser()
-    if folder.exists() and df.find_decks(folder):
-        print(f"error: {folder} already contains a presentation ({df.find_decks(folder)[0].name})", file=sys.stderr)
+    folder = args.parent.expanduser() / name
+    if folder.exists() and any(folder.iterdir()):
+        print(f"error: {folder} already exists and is not empty", file=sys.stderr)
         return 2
 
-    prefix = ask("File prefix (letters, digits, _ and -)", slug(folder.resolve().name) or "My")
+    prefix = ask("File prefix (letters, digits, _ and -)", name)
     if not df.PREFIX_RE.match(prefix):
         print(f"error: invalid prefix {prefix!r}", file=sys.stderr)
         return 2
