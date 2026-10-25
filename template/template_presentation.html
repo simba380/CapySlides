@@ -378,7 +378,7 @@ SOFTWARE.
 
   const SLIDE_TYPES = ['title', 'toc', 'content', 'animation', 'black'];
   const FRAMED_TYPES = ['toc', 'content', 'animation'];
-  const IMPLICIT_STEP_TYPES = ['toc', 'content'];   // unmarked content appears at step 2 (R5-1)
+  const IMPLICIT_STEP_TYPES = ['toc', 'content'];   // unmarked content appears at the final step (R9-1)
   const LAYOUTS = ['full', 'center'];
   const STEP_FX = ['rise', 'fade', 'slide-left', 'none'];
   const FORWARD_KEYS = new Set(['ArrowRight', 'ArrowDown', ' ', 'Spacebar', 'PageDown', 'End']);
@@ -573,19 +573,19 @@ SOFTWARE.
     return step >= range[0] && step <= range[1];
   }
 
-  /** Step 1 shows only the slide title (R5-1): every unmarked content subtree becomes a step-2
-      layer. A container that holds explicitly stepped elements stays structural and the rule
-      continues inside it, so `data-step="1"` anywhere still means "visible from the start". */
-  function applyImplicitSteps(container) {
+  /** Unmarked content (R9-1): step 1 shows only the slide title, steps 2…k show what is explicitly
+      assigned to them, and one final step k+1 reveals everything that was not assigned to a step.
+      Collects the unmarked content subtrees; a container that holds explicitly stepped elements
+      stays structural and the search continues inside it, so `data-step="1"` anywhere still means
+      "visible from the start". */
+  function unmarkedContent(container, found = []) {
     for (const child of container.children) {
       if (NOT_CONTENT.has(child.tagName) || child.classList.contains('slide-title')) continue;
       if (child.hasAttribute('data-step')) continue;
-      if (child.querySelector('[data-step]')) applyImplicitSteps(child);
-      else {
-        child.setAttribute('data-step', '2');
-        child.setAttribute('data-step-implicit', '');
-      }
+      if (child.querySelector('[data-step]')) unmarkedContent(child, found);
+      else found.push(child);
     }
+    return found;
   }
 
   function parseSteps(slide) {
@@ -596,7 +596,8 @@ SOFTWARE.
     const note = range => { highest = Math.max(highest, range[0], isFinite(range[1]) ? range[1] : 0); };
 
     if (el.querySelector('section')) warn(`${where}: nested <section> elements are not supported`, at());
-    if (IMPLICIT_STEP_TYPES.includes(slide.type)) applyImplicitSteps(el.querySelector('.slide-content') || el);
+    const unmarked = IMPLICIT_STEP_TYPES.includes(slide.type)
+      ? unmarkedContent(el.querySelector('.slide-content') || el) : [];
 
     for (const layer of el.querySelectorAll('[data-step]')) {
       const range = parseRange(layer.dataset.step);
@@ -637,6 +638,16 @@ SOFTWARE.
       } else {
         if (declared < highest) warn(`${where}: data-steps="${declared}" is lower than the highest step used (${highest})`, at());
         N = Math.max(declared, highest);
+      }
+    }
+    if (unmarked.length) {   // the final step: everything not assigned to a numbered step
+      N += 1;
+      for (const child of unmarked) {
+        child.setAttribute('data-step', String(N));
+        child.setAttribute('data-step-implicit', '');
+        child.classList.add('step-layer', 'fx-rise');
+        slide.layers.push({ el: child, range: [N, Infinity] });
+        layerRanges.set(child, [N, Infinity]);
       }
     }
     slide.N = N;

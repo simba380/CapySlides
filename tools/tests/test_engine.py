@@ -84,7 +84,7 @@ class EngineTest(unittest.TestCase):
         slides = r["slides"]
         self.assertEqual([s["label"] for s in slides],
                          ["1", "2", "3", "4", "5", "6", "7", "", "Appendix 1", "Appendix 2"])
-        self.assertEqual([s["N"] for s in slides], [1, 2, 3, 4, 3, 5, 2, 1, 2, 1])   # toc + math: title, then content
+        self.assertEqual([s["N"] for s in slides], [1, 2, 4, 4, 4, 5, 2, 1, 2, 1])   # unmarked content = extra final step
         self.assertEqual([s["zone"] for s in slides], ["main"] * 8 + ["appendix"] * 2)
         self.assertEqual(slides[2]["title"], "Basic steps")
         self.assertEqual(slides[9]["title"], "Appendix animation")    # from data-title
@@ -112,7 +112,7 @@ class EngineTest(unittest.TestCase):
           out.titleAlways = !$('basic').querySelector('.slide-title').classList.contains('step-layer');
           out.listStructural = !$('b-list').classList.contains('step-layer');
           out.implicit = [...$('basic').querySelectorAll('[data-step-implicit]')].map(e => e.id);
-          for (let i = 0; i < 3; i++) { out.basic.push([Deck.state.step, ...ids.map(vis)]); Deck.next(); }
+          for (let i = 0; i < 4; i++) { out.basic.push([Deck.state.step, ...ids.map(vis)]); Deck.next(); }
           Deck.goTo('ranges');
           for (let i = 0; i < 4; i++) {
             out.ranges.push([Deck.state.step, vis('r-range'), vis('r-only'), vis('r-late'), vis('r-slide')]);
@@ -130,8 +130,9 @@ class EngineTest(unittest.TestCase):
         # columns: step, b1, b2, b3, b-static, b-li-plain, b-li-one, b-li-three, b-gone
         self.assertEqual(r["basic"], [
             [1, False, False, False, True, False, True, False, True],    # step 1: title + explicit step-1 only
-            [2, True, True, False, True, True, True, False, True],
-            [3, True, True, True, True, True, True, True, False],        # 1..2 layer removed again
+            [2, False, True, False, True, False, True, False, True],
+            [3, False, True, True, True, False, True, True, False],      # 1..2 layer removed again
+            [4, True, True, True, True, True, True, True, False],        # final step: all unmarked content
         ])
         self.assertTrue(r["titleAlways"])
         self.assertTrue(r["listStructural"])
@@ -152,9 +153,9 @@ class EngineTest(unittest.TestCase):
           o.prevAtStart = Deck.prev();
           Deck.next(); Deck.next(); Deck.next();          // toc 1, toc 2 (list) -> basic (step 1)
           o.enterForward = st();
-          Deck.next(); Deck.next(); Deck.next();          // basic 2, 3 -> ranges 1
+          Deck.next(); Deck.next(); Deck.next(); Deck.next();   // basic 2, 3, 4 -> ranges 1
           Deck.next();                                    // ranges 2
-          Deck.prev(); Deck.prev();                       // ranges 1 -> basic (visited: restore 3)
+          Deck.prev(); Deck.prev();                       // ranges 1 -> basic (visited: restore 4)
           o.backToVisited = st();
           Deck.next();                                    // -> ranges (visited: restore 1)
           o.forwardToVisited = st();
@@ -185,7 +186,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(r["start"], {"id": "slide-1", "step": 1, "label": "1"})
         self.assertFalse(r["prevAtStart"])
         self.assertEqual(r["enterForward"], {"id": "basic", "step": 1, "label": "3"})
-        self.assertEqual(r["backToVisited"], {"id": "basic", "step": 3, "label": "3"})
+        self.assertEqual(r["backToVisited"], {"id": "basic", "step": 4, "label": "3"})
         self.assertEqual(r["forwardToVisited"], {"id": "ranges", "step": 1, "label": "4"})
         self.assertEqual(r["jumpUnvisited"], {"id": "hooked", "step": 1, "label": "6"})
         self.assertEqual(r["jumpVisited"], {"id": "hooked", "step": 3, "label": "6"})
@@ -442,7 +443,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn('step 1 · slide 3: unknown data-type="weird"', joined)
         self.assertIn('step 2 · slide 3 ("thrower"): unknown data-step-fx="wobble"', joined)
         self.assertIn("step 1 · DECK.hooks[\"thrower\"] threw: boom", joined)
-        self.assertIn('step 2 · formula error in "\\notacommand"', joined)       # implicit step-2 paragraph
+        self.assertIn('step 3 · formula error in "\\notacommand"', joined)       # unmarked paragraph: final step
         self.assertEqual(rows[5]["problems"], [rows[5]["problems"][0]])
         self.assertTrue(rows[5]["problems"][0].startswith('step 3 · formula error in "\\alsonotacommand"'))
         self.assertEqual(r["late"], {"id": "late", "step": 3, "label": "6"})

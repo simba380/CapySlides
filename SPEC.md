@@ -259,9 +259,13 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
 
 ### 8.3 Step model
 - Every slide has `N ≥ 1` steps. `N` = the highest step number referenced inside the slide, or the value of `data-steps="N"` on the section (needed when only a hook uses the steps).
-- **Step 1 shows only the slide title** (decision R5‑1). Steps are cumulative: step *k* shows everything whose range contains *k*; a range can also remove an element again (`data-step="1..2"` disappears at step 3).
-- The slide title (`.slide-title`) is always visible. **Unmarked content appears at step 2.** Precisely: inside the content frame, every element without `data-step` that contains no stepped descendant becomes an implicit `data-step="2"` layer (marked `data-step-implicit`). An unmarked element that *does* contain stepped descendants stays a structural container and the rule continues inside it. So `data-step="1"` anywhere means "visible from the start", e.g. in `<ul><li>A</li><li data-step="1">B</li><li data-step="3">C</li></ul>` B shows at step 1, A at 2, C at 3.
-- The rule applies to `content` and `toc` slides (the generated TOC list appears at step 2), not to `title`, `black` or `animation` slides.
+- **Step model (decision R9‑1, replaces R5‑1):**
+  - **Step 1** shows the slide title plus everything explicitly marked `data-step="1"`.
+  - **Steps 2 … k** show what is explicitly assigned to them (`data-step`, `data-step-class`). Steps are cumulative; a range can also remove an element again (`data-step="1..2"` disappears at step 3).
+  - **One final step k + 1** ("step ∞") reveals all **unmarked** content, i.e. everything not assigned to a numbered step. If every element is assigned, there is no extra final step.
+  - So a slide without any numbered steps has two steps: title → everything. A slide with only a title has one step. Explicit steps can start at 1 (`data-step` ≥ 1).
+- The slide title (`.slide-title`) is always visible. Precisely: inside the content frame, every element without `data-step` that contains no stepped descendant is an unmarked layer (it gets `data-step="k+1"` and `data-step-implicit`). An unmarked element that *does* contain stepped descendants stays a structural container and the rule continues inside it, e.g. in `<ul><li>A</li><li data-step="1">B</li><li data-step="3">C</li></ul>` B shows at step 1, C at 3 and A at the final step 4.
+- The rule applies to `content` and `toc` slides (the generated TOC list appears at step 2), not to `title`, `black` or `animation` slides. `data-steps="N"` raises k (for hook-driven slides); unmarked content then appears at N + 1.
 - **Visibility attribute `data-step`:**
 
   | Value | Visible when current step *s* … |
@@ -274,7 +278,7 @@ Each slide is a `<section>` inside `<main id="deck">`. Order in the file = order
   `data-step-class="hi:3..3 hl-conv:2"` → `.hi` only at step 3, `.hl-conv` from step 2 on.
   This covers the original's "Problem – **Insight** – Method – Result" title highlight and the code underline glows.
 - **Effects** `data-step-fx="rise|fade|slide-left|none"` (default `rise` = `opacity 0→1, translateY(6px)→0, .35s ease`; `slide-left` = original resolution panels `translateX(-12px), .4s`). Hidden layers keep their space (opacity only), so the layout never jumps, as in the original.
-- **Arrival rule:** the first time a slide is entered **forward** it shows step 1; entering an unvisited slide **backward** shows step N (final). Example (original slide 3, rebuilt): title at step 1, Problem unmarked (step 2), Insight `data-step="3"`, Method `"4"`, Result `"5"`. To show Problem on arrival as in the original, mark it `data-step="1"`.
+- **Arrival rule:** the first time a slide is entered **forward** it shows step 1; entering an unvisited slide **backward** shows step N (final). Example (original slide 3, rebuilt): Problem `data-step="1"` (shown on arrival as in the original), Insight `"2"`, Method `"3"`, Result `"4"`; anything left unmarked would follow at step 5.
 
 ### 8.4 Navigation state machine
 State: `current` slide index, `steps[i]` (current step of slide *i*), `visited[i]`.
@@ -580,7 +584,7 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑7 | CSS layers: `reset < vendor < engine < components < user`. The reset sits below vendor so it never overrides KaTeX spacing. Animation files keep vendor CSS unlayered. | P1 |
 | D‑8 | Plain text inside `.slide-content` defaults to `--fs-body` / line‑height 1.5. | P1 |
 | D‑9 | Engine tests run fixture decks in headless Edge/Chrome via `file://` with network disabled (`tools/tests/browser.py`); skipped if no browser is installed. | P1 |
-| R5‑1 | Step 1 = slide title only; unmarked content appears at step 2; `data-step="1"` puts content into step 1; containers with stepped descendants stay structural. Applies to content and TOC slides. | Round 5 |
+| ~~R5‑1~~ | ~~Step 1 = slide title only; unmarked content appears at step 2.~~ Superseded by R9‑1. | Round 5 |
 | ~~R5‑2~~ | ~~⚡ panel lists all warnings, grouped per slide (plus a Deck row), with preview iframe and jump.~~ Superseded by R6‑1/R6‑2. | Round 5 |
 | R5‑3 | The bottom‑left warnings badge stays (now alongside the dev navigator). | Round 5 |
 | ~~R5‑4~~ | ~~⚡ is leftmost in the top‑right row, symbol only, `?dev` only; clicking a row jumps to the slide's final step.~~ Superseded by R6‑1/R6‑4. | Round 5 |
@@ -596,7 +600,7 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R8‑1 | Navigation keys inside an animation are always forwarded (also from a focused slider); Ctrl/Shift + arrows stay in the animation. | Round 8 |
 | R8‑2 | Jumping to a slide via ☰ Slides while an animation is open closes the animation. | Round 8 |
 | R8‑3 | Overlay instances and picker thumbnails of all animations load at startup (background queue). | Round 8 |
-| D‑12 | The test harness smoke-tests each candidate browser (Edge, Chrome, …) and uses the first that really renders headless; each browser gets its own profile folder (profiles are not shareable). | P4 |
+| D‑13 | The test harness smoke-tests each candidate browser (Edge, Chrome, …) and uses the first that really renders headless; each browser gets its own profile folder (profiles are not shareable). | P4 |
 | D‑12 | `tools/image_sizes.py` writes the natural image size into each `<img>` (`width`/`height`) from the image files' headers (stdlib only, format by content); `--check` for CI/AI agents. This is the permanent counterpart of the per‑browser remembered sizes (R7‑3). | P3 |
 | D‑5 | Vendor sources: jsDelivr (`katex`, `@fontsource(-variable)/*` 5.3.0), subsets latin, latin‑ext, greek(+ext); Inter as variable font (100–900). | P0 |
 | D‑6 | Engine version stays 0.x during P0–P5 and becomes 1.0.0 at the end of P6. | P0 |
@@ -610,3 +614,4 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑2 | Title text from the slide's `.slide-title` element (HTML allowed); `data-title` only where no visible title exists. | Spec, accepted |
 | D‑3 | Navigator rows show number + title only (original's subtitle line dropped). | Requirement |
 | D‑4 | User zone first, engine/vendor block last in the file; CSS layering so user CSS always wins. | Spec, accepted |
+| R9‑1 | Step model: step 1 = title + explicit `data-step="1"`; steps 2…k = explicitly assigned content; one final step k+1 reveals all unmarked content (none if everything is assigned). | Round 9 |
