@@ -736,29 +736,30 @@ class AnimationTest(unittest.TestCase):
         self.assertEqual(r["notCurrent"], "intro")
         self.assertEqual(r["overlayIgnored"], "intro")
 
-    def test_a_key_steps_only_the_visible_animation(self):
-        reporter = ('<script>{ const own = window.animStep; window.animStep = () => { own(); '
+    def test_d_and_a_keys_step_only_the_visible_animation(self):
+        reporter = ('<script>{ const own = window.animStep; window.animStep = d => { own(d); '
                     'parent.postMessage({ stepSeen: { phi, url: location.search } }, "*"); }; }</script>\n')
         demo = anim_template().replace("<!-- ANIM-CONTRACT:BEGIN", reporter + "<!-- ANIM-CONTRACT:BEGIN", 1)
         r = probe("anim_deck-astep", self.WAIT + """
           const seen = [], o = {};
           addEventListener('message', e => { if (e.data && e.data.stepSeen) seen.push(e.data.stepSeen); });
           const settle = () => new Promise(r => setTimeout(r, 150));
-          Deck.goTo('intro'); key('a'); await settle();
+          Deck.goTo('intro'); key('d'); key('a'); await settle();
           o.contentSlide = { seen: seen.length, api: Deck.stepAnimation() };
-          Deck.goTo('anim-demo'); key('a'); key('A'); key('a', { ctrlKey: true }); await settle();
+          Deck.goTo('anim-demo'); key('d'); key('D'); key('a'); key('d', { ctrlKey: true }); key('a', { ctrlKey: true }); await settle();
           o.slide = seen.splice(0).map(s => [s.phi, s.url]);
           o.stillOnSlide = st();
-          Deck.openAnimation('demo'); key('a'); await settle();
+          Deck.openAnimation('demo'); key('d'); await settle();
           o.overlay = seen.splice(0).map(s => [s.phi, s.url]);
           Deck.closeAnimation();
-          Deck.goTo('anim-ghost'); key('a'); await settle();
+          Deck.goTo('anim-ghost'); key('d'); await settle();
           o.missing = { seen: seen.length, api: Deck.stepAnimation() };
           return o;
         """, page=fixture("anim_deck"), files={**anim_files(), "demo_animations.html": demo}, budget_ms=15000)
         self.assertEqual(r["contentSlide"], {"seen": 0, "api": False})
-        self.assertEqual(r["slide"], [[4, "?deck-embed=1&phi=3"], [0, "?deck-embed=1&phi=3"]])   # Ctrl+A ignored
-        self.assertEqual(r["stillOnSlide"]["id"], "anim-demo", "A never moves the slides")
+        slide = "?deck-embed=1&phi=3"   # D, D, A from φ = 3 (wrapping at 4); Ctrl+D / Ctrl+A ignored
+        self.assertEqual(r["slide"], [[4, slide], [0, slide], [4, slide]])
+        self.assertEqual(r["stillOnSlide"]["id"], "anim-demo", "D / A never move the slides")
         self.assertEqual(r["overlay"], [[2, "?deck-embed=1"]], "only the open overlay instance steps")
         self.assertEqual(r["missing"], {"seen": 0, "api": False})
 
@@ -835,7 +836,7 @@ class AnimationTest(unittest.TestCase):
           addEventListener('message', e => { if (e.source === frame.contentWindow) got.push(e.data); });
           frame.srcdoc = '<!doctype html><body><input id="t" type="text"><input id="r" type="range">' +
             '<script>window.applyPreset = c => parent.postMessage({ presetSeen: c }, "*");' +
-            'window.animStep = () => parent.postMessage({ stepSeen: 1 }, "*");<\\/script>' +
+            'window.animStep = d => parent.postMessage({ stepSeen: d }, "*");<\\/script>' +
             '<script>' + CONTRACT + '<\\/script></body>';
           document.body.appendChild(frame);
           await new Promise(r => frame.addEventListener('load', r, { once: true }));
@@ -850,10 +851,11 @@ class AnimationTest(unittest.TestCase):
           press(doc.getElementById('t'), ' ');
           press(doc.getElementById('r'), 'ArrowLeft');
           press(doc.body, 'x');
-          press(doc.body, 'a'); press(doc.body, 'A');
-          press(doc.body, 'a', { ctrlKey: true });
-          press(doc.getElementById('t'), 'a');
-          win.postMessage({ ns: 'deck', v: 1, type: 'step' }, '*');
+          press(doc.body, 'd'); press(doc.body, 'a'); press(doc.body, 'D'); press(doc.body, 'A');
+          press(doc.body, 'a', { ctrlKey: true }); press(doc.body, 'd', { ctrlKey: true });
+          press(doc.getElementById('t'), 'd');
+          win.postMessage({ ns: 'deck', v: 1, type: 'step', dir: -1 }, '*');
+          win.postMessage({ ns: 'deck', v: 1, type: 'step' }, '*');   // a 1.1.x deck: forward
           win.postMessage({ ns: 'deck', v: 1, type: 'ping' }, '*');
           win.postMessage({ ns: 'deck', v: 1, type: 'preset', preset: { phi: 2 } }, '*');
           await new Promise(r => setTimeout(r, 100));
@@ -868,7 +870,8 @@ class AnimationTest(unittest.TestCase):
         self.assertTrue(all(m.get("ns") == "deck" and m.get("v") == 1 for m in got if "type" in m))
         self.assertEqual([m["type"] for m in got if m.get("type") == "ready"], ["ready", "ready"])   # load + ping
         self.assertIn({"presetSeen": {"phi": 2}}, got)
-        self.assertEqual(sum(1 for m in got if "stepSeen" in m), 3)   # a, A, step message (not Ctrl+A, not text)
+        # d, a, D, A, step messages (not Ctrl+A/D, not typed into a text field)
+        self.assertEqual([m["stepSeen"] for m in got if "stepSeen" in m], [1, -1, 1, -1, -1, 1])
 
     def test_template_animation_panel_system(self):
         r = browser.run(anim_template(), """
@@ -881,10 +884,12 @@ class AnimationTest(unittest.TestCase):
           o.default = shown();
           o.bars = document.querySelectorAll('#scaling-viz rect').length;
           o.phi = document.getElementById('phi-val').textContent;
-          document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
           o.stepped = [document.getElementById('phi-val').textContent];
-          window.animStep();
+          window.animStep(1);
           o.stepped.push(document.getElementById('phi-val').textContent);   // after φ = 4 back to 0
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+          o.stepped.push(document.getElementById('phi-val').textContent);   // A: back to 4
           applyPreset({ phi: 3 });
           click('notes'); click('grid'); await wait(600);
           o.three = { queue: Panels.openIds, shown: shown() };        // opened out of order, shown in sidebar order
@@ -905,7 +910,7 @@ class AnimationTest(unittest.TestCase):
         self.assertEqual(r["three"], {"queue": ["scaling", "notes", "grid"], "shown": ["scaling", "grid", "notes"]})
         self.assertEqual(r["fourth"], {"queue": ["notes", "grid", "formula"], "shown": ["formula", "grid", "notes"]})
         self.assertEqual(r["katex"], 1)
-        self.assertEqual(r["stepped"], ["4", "0"])                          # A = next φ (demo animStep)
+        self.assertEqual(r["stepped"], ["4", "0", "4"])                     # D / A = next / previous φ
         self.assertEqual(r["cards"], ["formula", "grid", "notes"])
         self.assertEqual(r["closed"], ["notes", "formula"])                 # clicking an open card closes it
         self.assertEqual(r["preset"], ["scaling", "grid"])                  # URL order does not matter

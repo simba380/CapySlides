@@ -4,8 +4,8 @@
      - ready handshake: tells the deck the file exists (otherwise the deck shows a placeholder),
      - key forwarding: navigation keys pressed inside the animation move the presentation,
      - presets: the deck can send { type: 'preset', preset } → window.applyPreset(preset) if defined,
-     - animation steps: the A key (pressed here, or in the deck and sent as { type: 'step' })
-       → window.animStep() if defined: advances the animation by one of its own steps.
+     - animation steps: D = forward, A = back (pressed here, or in the deck and sent as
+       { type: 'step', dir: 1 | -1 }) → window.animStep(dir) if defined: one of the animation's own steps.
    URL parameters set by the deck: deck-embed=1 (embedded), deck-thumb=1 (small preview), plus the
    slide's data-params, readable via DeckAnim.params. */
 (() => {
@@ -33,23 +33,24 @@
     if (!data || data.ns !== 'deck') return;
     if (data.type === 'ping') ready();
     else if (data.type === 'preset' && typeof window.applyPreset === 'function') window.applyPreset(data.preset || {});
-    else if (data.type === 'step') step();
+    else if (data.type === 'step') step(data.dir === -1 ? -1 : 1);   // decks before 1.2.0 send no dir
   });
 
-  function step() {
-    if (typeof window.animStep === 'function') window.animStep();
+  function step(dir) {
+    if (typeof window.animStep === 'function') window.animStep(dir);
   }
 
   function isTextInput(t) {
     return t instanceof Element && (t.isContentEditable || t.matches(TEXT_INPUT));
   }
 
-  // A = one step forward inside the animation (decision R15-1), also when not embedded. It never
-  // moves the presentation, so the deck's Space/arrow keys keep their meaning.
+  // D = one step forward, A = one step back inside the animation (decision R16-1, "gaming" keys), also
+  // when not embedded. They never move the presentation, so the deck's Space/arrow keys keep their meaning.
+  const STEP_KEYS = { d: 1, D: 1, a: -1, A: -1 };
   document.addEventListener('keydown', e => {
-    if ((e.key !== 'a' && e.key !== 'A') || e.ctrlKey || e.altKey || e.metaKey || isTextInput(e.target)) return;
+    if (!(e.key in STEP_KEYS) || e.ctrlKey || e.altKey || e.metaKey || isTextInput(e.target)) return;
     e.preventDefault();
-    step();
+    step(STEP_KEYS[e.key]);
   });
 
   // Navigation keys always go to the deck, even while a slider has focus (as in the original

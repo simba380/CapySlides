@@ -146,7 +146,7 @@ python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</
     <tr><td>← ↑ PageUp Home</td><td>Previous step, then previous slide</td></tr>
     <tr><td>Esc</td><td>Close the Slides / Components / animation picker panel</td></tr>
     <tr><td>Arrow keys inside an animation</td><td>Move the presentation; <b>Ctrl/Shift + arrows</b> stay inside the animation</td></tr>
-    <tr><td>A</td><td>One step inside the visible animation (calls its <code>window.animStep()</code>); the slides do not move</td></tr>
+    <tr><td>D / A</td><td>One step forward / back inside the visible animation (calls its <code>window.animStep(1)</code> / <code>animStep(-1)</code>); the slides do not move</td></tr>
   </table>
 
   <h2 id="console">Console API (F12 → Console)</h2>
@@ -158,7 +158,7 @@ python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</
     <tr><td><code>Deck.warnings</code> / <code>Deck.problems</code></td><td>All problems (with slide index and step)</td></tr>
     <tr><td><code>Deck.slides</code> / <code>Deck.animations</code></td><td>Slide list; animation instances and their status</td></tr>
     <tr><td><code>Deck.openAnimation(id)</code> / <code>Deck.closeAnimation()</code></td><td>Open / close an animation overlay</td></tr>
-    <tr><td><code>Deck.stepAnimation()</code></td><td>Same as the A key: one step of the visible animation (<code>false</code> if none is visible)</td></tr>
+    <tr><td><code>Deck.stepAnimation(dir?)</code></td><td>Same as D (<code>dir</code> = 1, default) / A (<code>-1</code>): one step of the visible animation (<code>false</code> if none is visible)</td></tr>
     <tr><td><code>Deck.version</code></td><td>Engine version of this deck</td></tr>
   </table>
 

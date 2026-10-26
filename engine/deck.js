@@ -19,6 +19,7 @@
   const STEP_FX = ['rise', 'fade', 'slide-left', 'none'];
   const FORWARD_KEYS = new Set(['ArrowRight', 'ArrowDown', ' ', 'Spacebar', 'PageDown', 'End']);
   const BACK_KEYS = new Set(['ArrowLeft', 'ArrowUp', 'PageUp', 'Home']);
+  const ANIM_STEP_KEYS = { d: 1, D: 1, a: -1, A: -1 };   // steps inside the visible animation
   const NOT_CONTENT = new Set(['SCRIPT', 'STYLE', 'TEMPLATE']);
   const MATH_DELIMITERS = [
     { left: '$$', right: '$$', display: true },
@@ -916,10 +917,11 @@
     return rec && rec.ready && !rec.missing ? rec : null;
   }
 
-  /** Ask the visible animation for one of its own steps (the A key); false if none is visible. */
-  function stepAnimation() {
+  /** One of the visible animation's own steps: dir 1 = forward (D key), -1 = back (A key);
+   *  false if no animation is visible. */
+  function stepAnimation(dir = 1) {
     const rec = visibleAnimation();
-    if (rec) postToFrame(rec.frame, { type: 'step' });
+    if (rec) postToFrame(rec.frame, { type: 'step', dir: dir < 0 ? -1 : 1 });
     return !!rec;
   }
 
@@ -1146,8 +1148,9 @@
       if (e.key === 'Escape') { e.preventDefault(); closeOverlay(openOverlay); }
       return;
     }
-    if (e.key === 'a' || e.key === 'A') {   // one step inside the visible animation (decision R15-1)
-      if (!e.ctrlKey && stepAnimation()) e.preventDefault();
+    const animDir = ANIM_STEP_KEYS[e.key];   // D / A: one step inside the visible animation (decision R16-1)
+    if (animDir) {
+      if (!e.ctrlKey && stepAnimation(animDir)) e.preventDefault();
       return;
     }
     if (state.animOpen !== null) return;   // the animation overlay has the keyboard
@@ -1431,7 +1434,7 @@
     next, prev, goTo,
     openAnimation: id => openAnimation(id),
     closeAnimation: () => closeAnimation(),
-    stepAnimation: () => stepAnimation(),
+    stepAnimation: dir => stepAnimation(dir),
     fit: () => fit(),
   };
 
