@@ -180,6 +180,11 @@ Step numbers in the snippets are examples.
 - Show it as a slide: `<section data-type="animation" data-anim="model" data-params="phi=2" data-title="…"></section>`.
   The animation reads `data-params` from its URL (`readURLParams()`) or via `window.applyPreset(cfg)`.
 - Arrow keys inside an animation move the presentation; Ctrl/Shift + arrows stay in the animation.
+- **Animation steps (A key):** pressing **A** — in the deck on an animation slide or with the animation
+  open, or inside the animation — calls `window.animStep()` of the visible animation: one step of the
+  animation itself, while Space/arrows keep moving the slides. Define it in the animation, e.g.
+  `window.animStep = () => { step = Math.min(step + 1, LAST); redraw(); };` (the starter's demo: A = next φ).
+  Without `window.animStep`, A does nothing.
 
 ---
 

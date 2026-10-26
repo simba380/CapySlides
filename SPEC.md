@@ -53,7 +53,7 @@
 - Cover slide: aerial background, white "ETH zürich" box top‑left, course info top‑right under the buttons, ETH‑blue title box bottom‑left.
 - Top‑right buttons `☰ Slides` and `▶ Animation` (left of Slides), same colours and blur.
 - Navigator overlay: blurred backdrop, white panel, list of thumbnail iframes + labels, current slide highlighted.
-- Keyboard: → / Space / PageDown / End = forward; ← / PageUp / Home = back (laser‑pointer compatible); Esc closes menus.
+- Keyboard: → / Space / PageDown / End = forward; ← / PageUp / Home = back (laser‑pointer compatible); Esc closes menus; A = one step inside the visible animation (decision R15‑1).
 - Animation iframes forward navigation keys to the parent via `postMessage`; animations take presets via URL params / `postMessage`.
 - Black end slide followed by appendix slides.
 - "← → to navigate" hint that fades after 4 s.
@@ -362,6 +362,7 @@ All messages are objects `{ ns: 'deck', v: 1, type, … }` sent with `postMessag
 | deck → anim | `ping` | – | after iframe `load`, as a race-free backup |
 | anim → deck | `key` | `{ key }` | navigation keys (→ ← ↑ ↓ Space PageUp PageDown Home End) pressed inside the animation — **also while a slider has focus** (as in the original, decision R8‑1). **Ctrl/Shift + arrow keys are not forwarded**, so they steer only the animation. Keys typed into text fields are never forwarded. |
 | deck → anim | `preset` | `{ preset: {...} }` | optional runtime preset (animation calls `window.applyPreset(preset)` if defined) |
+| deck → anim | `step` | – | the **A** key was pressed in the deck: sent to the visible instance only (the open overlay, else the current animation slide; never thumbnails); the animation calls `window.animStep()` if defined. A pressed inside the animation calls it directly (also when not embedded) and is not forwarded. Ctrl/Alt/Meta + A and text fields are ignored (decision R15‑1, engine 1.1.0; older animations ignore the message). |
 
 - URL parameters: the deck passes `deck-embed=1` (and `deck-thumb=1` for picker thumbnails) plus the slide's `data-params`. Interpreting params is the animation's job (the EfficientNet `readURLParams`/`applyPreset` pattern is the recommended model and lives in the template).
 - **Missing detection:** if no `ready` arrives within **1500 ms after the iframe's `load` event** (or 15 s after its `src` was set; generous because a missing file already fails 1.5 s after its load event), the iframe is replaced by the animation placeholder. Missing slide instances are warnings for their slide, a missing overlay instance is a deck‑wide warning (both visible in the `?dev` navigator).
@@ -659,3 +660,4 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | D‑15 | Animation overlay instances are queued before the navigator thumbnails; the overall handshake timeout is 15 s. Engine 1.0.1. | P7 |
 | D‑16 | Cleanup pass (engine 1.0.2): `new.py` escapes `</script>` in config values; closed overlays are `visibility:hidden` (not focusable); an open panel keeps its own keys (Esc closes) and an open animation overlay gets no deck keys; math in navigator/picker/component labels is rendered; the starter animation ignores unknown/duplicate panel ids; `check.py` waits until images and animations have settled and reports uncaught JS errors; the AUTHORING example slide is tested. | Cleanup |
 | R14‑1 | `tools/add_animation.py` adds an animation to an existing project (file from the current starter + entry in `DECK.animations`); animation files are never copied by hand. | Round 14 |
+| R15‑1 | The **A** key advances the visible animation by one of its own steps (`window.animStep()`), from the deck (`step` message) or inside the animation; Space/arrows keep moving the slides. `Deck.stepAnimation()` does the same. Engine 1.1.0. | Round 15 |

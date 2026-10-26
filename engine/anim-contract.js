@@ -3,7 +3,9 @@
    tools/update.py). It lets a deck embed the animation:
      - ready handshake: tells the deck the file exists (otherwise the deck shows a placeholder),
      - key forwarding: navigation keys pressed inside the animation move the presentation,
-     - presets: the deck can send { type: 'preset', preset } → window.applyPreset(preset) if defined.
+     - presets: the deck can send { type: 'preset', preset } → window.applyPreset(preset) if defined,
+     - animation steps: the A key (pressed here, or in the deck and sent as { type: 'step' })
+       → window.animStep() if defined: advances the animation by one of its own steps.
    URL parameters set by the deck: deck-embed=1 (embedded), deck-thumb=1 (small preview), plus the
    slide's data-params, readable via DeckAnim.params. */
 (() => {
@@ -31,6 +33,23 @@
     if (!data || data.ns !== 'deck') return;
     if (data.type === 'ping') ready();
     else if (data.type === 'preset' && typeof window.applyPreset === 'function') window.applyPreset(data.preset || {});
+    else if (data.type === 'step') step();
+  });
+
+  function step() {
+    if (typeof window.animStep === 'function') window.animStep();
+  }
+
+  function isTextInput(t) {
+    return t instanceof Element && (t.isContentEditable || t.matches(TEXT_INPUT));
+  }
+
+  // A = one step forward inside the animation (decision R15-1), also when not embedded. It never
+  // moves the presentation, so the deck's Space/arrow keys keep their meaning.
+  document.addEventListener('keydown', e => {
+    if ((e.key !== 'a' && e.key !== 'A') || e.ctrlKey || e.altKey || e.metaKey || isTextInput(e.target)) return;
+    e.preventDefault();
+    step();
   });
 
   // Navigation keys always go to the deck, even while a slider has focus (as in the original
@@ -39,8 +58,7 @@
   document.addEventListener('keydown', e => {
     if (!EMBEDDED || !NAV_KEYS.has(e.key) || e.altKey || e.metaKey) return;
     if (ARROWS.has(e.key) && (e.ctrlKey || e.shiftKey)) return;
-    const t = e.target;
-    if (t instanceof Element && (t.isContentEditable || t.matches(TEXT_INPUT))) return;
+    if (isTextInput(e.target)) return;
     post({ type: 'key', key: e.key });
   });
 

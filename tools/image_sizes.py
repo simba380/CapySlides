@@ -310,6 +310,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("deck", type=Path, help="deck file (…_presentation.html)")
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 if any width/height is missing or wrong")
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):   # → and names print on any console (e.g. cp1252 when piped)
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
 
     try:
         raw = args.deck.read_bytes()

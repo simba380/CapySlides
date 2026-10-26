@@ -93,6 +93,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("name", nargs="?", help="project name = folder name in presentations/ (asked if omitted)")
     ap.add_argument("--parent", type=Path, default=df.PRESENTATIONS, help=f"where projects live (default: {df.PRESENTATIONS})")
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):   # → and names print on any console (e.g. cp1252 when piped)
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
 
     name = (args.name or ask("Project name (letters, digits, _ and -)")).strip()
     if not df.PREFIX_RE.match(name):

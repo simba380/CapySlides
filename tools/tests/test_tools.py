@@ -32,9 +32,10 @@ ANSWERS = "\n".join([
 ]) + "\n"
 
 
-def run(tool: str, *args: str, stdin: str | None = None) -> subprocess.CompletedProcess:
+def run(tool: str, *args: str, stdin: str | None = None, io_encoding: str = "utf-8") -> subprocess.CompletedProcess:
+    """io_encoding = the console encoding the tool starts with (it switches its output to UTF-8)."""
     return subprocess.run([sys.executable, str(TOOLS / tool), *args], input=stdin, capture_output=True,
-                          text=True, encoding="utf-8", timeout=600, env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"})
+                          text=True, encoding="utf-8", timeout=600, env={**__import__("os").environ, "PYTHONIOENCODING": io_encoding})
 
 
 class ToolTestCase(unittest.TestCase):
@@ -170,6 +171,12 @@ class UpdateTest(ToolTestCase):
         self.assertEqual(claude.read_text(encoding="utf-8").count("CUSTOMPRESENTATIONS:BEGIN"), 1)
         again = run("update.py", str(self.folder))
         self.assertIn("up to date", again.stdout)
+
+    def test_output_works_on_a_cp1252_console(self):
+        self.age(self.deck, _blocks.DECK_ENGINE, "0.9.0")
+        proc = run("update.py", str(self.folder), io_encoding="cp1252")   # Windows console, output piped
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("v0.9.0 → v" + build.engine_version(), proc.stdout)
 
     def test_refuses_downgrade_and_foreign_files(self):
         self.age(self.deck, _blocks.DECK_ENGINE, "9.9.9")

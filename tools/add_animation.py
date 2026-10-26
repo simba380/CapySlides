@@ -138,6 +138,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("path", type=Path, help="presentation folder (or its *_presentation.html)")
     ap.add_argument("name", nargs="?", help="animation name shown in the picker (asked if omitted)")
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):   # → and names print on any console (e.g. cp1252 when piped)
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
 
     decks = df.find_decks(args.path)
     if len(decks) != 1 or not decks[0].is_file():

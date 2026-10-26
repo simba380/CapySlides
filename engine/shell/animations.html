@@ -19,7 +19,9 @@
            end of <body>: without the contract, a deck treats the file as missing;
          - deck slides open it in a given state via data-params, e.g. "open=scaling,formula&phi=3"
            (handled by readURLParams / applyPreset below);
-         - arrow keys are forwarded to the deck; Ctrl/Shift + arrows stay here (e.g. for sliders). -->
+         - arrow keys are forwarded to the deck; Ctrl/Shift + arrows stay here (e.g. for sliders);
+         - the A key (pressed here or in the deck) calls window.animStep(): one step of the
+           animation itself, without moving the presentation (see "STEPS" below). -->
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -100,7 +102,7 @@
             <div class="ctrl-header"><span class="ctrl-label">Compound φ</span><span class="ctrl-value" id="phi-val">1</span></div>
             <input type="range" id="phi" min="0" max="4" step="1" value="1">
           </div>
-          <p class="hint">Arrow keys move the presentation; hold Ctrl or Shift to move only the slider.</p>
+          <p class="hint">Arrow keys move the presentation; hold Ctrl or Shift to move only the slider. A = next φ.</p>
         </div></div>
       </div>
 
@@ -235,6 +237,13 @@
     }
     document.getElementById('phi').addEventListener('input', e => { phi = Number(e.target.value); redrawAll(); });
     document.getElementById('res').addEventListener('input', e => { res = Number(e.target.value); redrawAll(); });
+
+    // ── STEPS: the A key (here or in the deck) calls window.animStep() ───────
+    window.animStep = () => {   // demo: φ + 1, back to 0 after the last value
+      phi = phi < 4 ? phi + 1 : 0;
+      document.getElementById('phi').value = phi;
+      redrawAll();
+    };
 
     // ── PRESETS: from the URL (deck: data-params="open=scaling,grid&phi=3") or via postMessage ──
     function applyPreset(cfg) {

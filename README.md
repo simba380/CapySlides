@@ -56,6 +56,7 @@ Every command with all options: **`TOOLS.html`** (open it in the browser).
 |---|---|
 | → ↓ Space PageDown End | next step, then next slide (clickers/laser pointers work) |
 | ← ↑ PageUp Home | previous step / slide |
+| A | one step inside the animation that is visible (animation slide or open animation); the slides do not move |
 | ☰ Slides | all slides with previews; click to jump (each slide remembers its step) |
 | ▶ Animation / ▶ Animations | open the interactive animation(s); ◀ Presentation / ⇄ Switch to go back |
 | Esc | close a panel |

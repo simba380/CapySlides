@@ -909,6 +909,20 @@
     else if (BACK_KEYS.has(data.key)) prev();
   }
 
+  /** The animation instance the audience sees: the open overlay, else the current animation slide. */
+  function visibleAnimation() {
+    const rec = state.animOpen !== null ? overlayInstances.get(state.animOpen)
+      : animFrames.find(r => r.kind === 'slide' && r.slide === state.current);
+    return rec && rec.ready && !rec.missing ? rec : null;
+  }
+
+  /** Ask the visible animation for one of its own steps (the A key); false if none is visible. */
+  function stepAnimation() {
+    const rec = visibleAnimation();
+    if (rec) postToFrame(rec.frame, { type: 'step' });
+    return !!rec;
+  }
+
   function buildAnimations() {
     if (!anims.length) return;
     animOverlay = h('div');
@@ -1130,6 +1144,10 @@
     if (e.defaultPrevented || e.altKey || e.metaKey || isEditable(e.target)) return;
     if (openOverlay) {   // an open panel keeps its own keys (scrolling, buttons, folds); Esc closes it
       if (e.key === 'Escape') { e.preventDefault(); closeOverlay(openOverlay); }
+      return;
+    }
+    if (e.key === 'a' || e.key === 'A') {   // one step inside the visible animation (decision R15-1)
+      if (!e.ctrlKey && stepAnimation()) e.preventDefault();
       return;
     }
     if (state.animOpen !== null) return;   // the animation overlay has the keyboard
@@ -1413,6 +1431,7 @@
     next, prev, goTo,
     openAnimation: id => openAnimation(id),
     closeAnimation: () => closeAnimation(),
+    stepAnimation: () => stepAnimation(),
     fit: () => fit(),
   };
 

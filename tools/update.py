@@ -67,6 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--force", action="store_true", help="allow replacing a newer engine (downgrade)")
     ap.add_argument("--dry-run", action="store_true", help="report only, write nothing")
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):   # → and names print on any console (e.g. cp1252 when piped)
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
 
     if not args.target.exists():
         print(f"error: {args.target} does not exist", file=sys.stderr)
