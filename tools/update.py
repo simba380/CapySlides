@@ -4,8 +4,8 @@
 
 For each deck (*_presentation.html) the DECK-ENGINE block is replaced; for each animation file
 (*_animations.html) in the same folder the ANIM-VENDOR and ANIM-CONTRACT blocks are replaced.
-Everything outside these marker blocks stays byte-identical (verified). A backup <file>.bak is
-written for every changed file. A folder also gets a fresh CLAUDE.md block and AUTHORING.md copy.
+Everything outside these marker blocks stays byte-identical (verified), and a block keeps the line
+endings it had (CRLF stays CRLF). A backup <file>.bak is written for every changed file. A folder also gets a fresh CLAUDE.md block and AUTHORING.md copy.
 
 Refuses to downgrade (file newer than this repository's engine) unless --force is given.
 """
@@ -37,13 +37,14 @@ def update_text(text: str, blocks: dict[str, str], version: str, force: bool) ->
     for name in blocks:
         found = _blocks.find(text, name)
         if len(found) != 1:
-            raise UpdateError(f"expected exactly one {name} block, found {len(found)} (not a CustomPresentations file?)")
+            raise UpdateError(f"expected exactly one {name} block, found {len(found)} (not a CapySlides file?)")
         old_version = old_version or found[0]["version"]
     if old_version and df.version_tuple(old_version) > df.version_tuple(version) and not force:
         raise UpdateError(f"file has engine v{old_version}, newer than this repository's v{version}; use --force to downgrade")
     new = text
     for name, block in blocks.items():
-        new = _blocks.replace(new, name, block)
+        crlf = "\r\n" in _blocks.find(new, name)[0].group(0)   # a deck saved on Windows keeps its line endings
+        new = _blocks.replace(new, name, block.replace("\n", "\r\n") if crlf else block)
     if outside_blocks(new, blocks) != outside_blocks(text, blocks):
         raise UpdateError("content outside the engine blocks would change; aborted")
     return new, old_version

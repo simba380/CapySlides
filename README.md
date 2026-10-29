@@ -1,4 +1,4 @@
-# CustomPresentations
+# CapySlides
 
 Presentations as **single, offline HTML files** in the ETH Zürich style: slides with step-by-step
 reveals, LaTeX formulas, reusable building blocks and interactive animations — opened by

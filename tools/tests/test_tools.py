@@ -168,9 +168,38 @@ class UpdateTest(ToolTestCase):
         self.assertEqual(_blocks.version_of(anim.read_text(encoding="utf-8"), _blocks.ANIM_CONTRACT), build.engine_version())
         self.assertEqual((self.folder / "Second_animations.html.bak").read_text(encoding="utf-8"), old_anim)
         self.assertTrue(claude.read_text(encoding="utf-8").startswith("My own notes stay."))
-        self.assertEqual(claude.read_text(encoding="utf-8").count("CUSTOMPRESENTATIONS:BEGIN"), 1)
+        self.assertEqual(claude.read_text(encoding="utf-8").count("CAPYSLIDES:BEGIN"), 1)
         again = run("update.py", str(self.folder))
         self.assertIn("up to date", again.stdout)
+
+    def test_keeps_windows_line_endings(self):
+        # A deck saved with CRLF: at the same version nothing is rewritten; a new engine comes in as CRLF.
+        self.deck.write_bytes(self.deck.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        proc = run("update.py", str(self.folder))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(f"up to date  {self.deck.name}", proc.stdout)
+        self.assertFalse(self.deck.with_name(self.deck.name + ".bak").exists())
+        old = _blocks.wrap(_blocks.DECK_ENGINE, "0.9.0", "old engine").replace("\n", "\r\n")
+        self.deck.write_bytes(_blocks.replace(self.deck.read_bytes().decode("utf-8"), _blocks.DECK_ENGINE, old).encode("utf-8"))
+        proc = run("update.py", str(self.folder))
+        self.assertIn("v0.9.0 → v" + build.engine_version(), proc.stdout)
+        new = self.deck.read_bytes().decode("utf-8")
+        self.assertEqual(_blocks.version_of(new, _blocks.DECK_ENGINE), build.engine_version())
+        self.assertNotIn("\n", new.replace("\r\n", ""), "only CRLF line endings")
+
+    def test_replaces_the_block_of_projects_from_before_the_rename(self):
+        # Projects created as "CustomPresentations" (before R18-1) carry the old markers.
+        claude = self.folder / "CLAUDE.md"
+        claude.write_text("My own notes stay.\n\n<!-- CUSTOMPRESENTATIONS:BEGIN v1.2.0 (managed) -->\n# old pointer\n"
+                          "<!-- CUSTOMPRESENTATIONS:END -->\n\nNotes after it stay too.\n", encoding="utf-8")
+        proc = run("update.py", str(self.folder))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        text = claude.read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("My own notes stay.\n\n<!-- CAPYSLIDES:BEGIN"), text[:80])
+        self.assertTrue(text.endswith("<!-- CAPYSLIDES:END -->\n\nNotes after it stay too.\n"), text[-80:])
+        self.assertNotIn("CUSTOMPRESENTATIONS", text)
+        self.assertNotIn("old pointer", text)
+        self.assertEqual(text.count("CAPYSLIDES:BEGIN"), 1)
 
     def test_output_works_on_a_cp1252_console(self):
         self.age(self.deck, _blocks.DECK_ENGINE, "0.9.0")

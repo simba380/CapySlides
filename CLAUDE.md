@@ -1,4 +1,4 @@
-# CustomPresentations — instructions for AI agents
+# CapySlides — instructions for AI agents
 
 Offline, single-file HTML presentations (ETH style) with step reveals, KaTeX, interactive animations
 and tooling. Start with `README.md` (overview), `AUTHORING.md` (how to write slides),

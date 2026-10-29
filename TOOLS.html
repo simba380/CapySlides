@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Presentation Tools</title>
-  <!-- Central list of every helper of CustomPresentations: command-line tools, in-browser helpers,
+  <title>CapySlides Tools</title>
+  <!-- Central list of every helper of CapySlides: command-line tools, in-browser helpers,
        files. Keep it complete: tools/tests/test_tools.py fails if a tools/*.py script is missing here. -->
   <style>
     :root {
@@ -43,9 +43,9 @@
 </head>
 <body>
 <main>
-  <h1>Presentation tools</h1>
-  <p class="lead">Every command and helper of CustomPresentations in one place. Commands run from this
-    repository (<code>D:\Code\CustomPresentations</code>) and work on any presentation folder;
+  <h1>CapySlides tools</h1>
+  <p class="lead">Every command and helper of CapySlides in one place. Commands run from this
+    repository (the <code>CapySlides</code> folder) and work on any presentation folder;
     a presentation folder itself never needs the repository. Details: <code>README.md</code> (overview, quick start,
     troubleshooting), <code>AUTHORING.md</code> (how to write slides) and <code>SPEC.md</code> (design decisions).</p>
 
@@ -111,8 +111,9 @@ python tools/image_sizes.py "…_presentation.html" --check   # report only, exi
   <div class="card" id="tool-update">
     <h3>tools/update.py <span class="when">older presentation, newer template</span></h3>
     <p>Replaces only the generated engine blocks (deck: <code>DECK-ENGINE</code>; animations: <code>ANIM-VENDOR</code>,
-      <code>ANIM-CONTRACT</code>), verifies that nothing else changed, writes <code>.bak</code> backups and refreshes
-      <code>CLAUDE.md</code> / <code>AUTHORING.md</code>. Refuses to downgrade.</p>
+      <code>ANIM-CONTRACT</code>), verifies that nothing else changed (a file saved with Windows line endings keeps
+      them), writes <code>.bak</code> backups and refreshes <code>CLAUDE.md</code> / <code>AUTHORING.md</code>
+      (also the paths in it, e.g. after the repository folder was moved or renamed). Refuses to downgrade.</p>
     <pre>python tools/update.py "presentations\MyTalk"
 python tools/update.py "presentations\MyTalk" --dry-run   # only report
 python tools/update.py "presentations\MyTalk" --force     # allow a downgrade</pre>

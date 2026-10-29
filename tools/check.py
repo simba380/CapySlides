@@ -86,7 +86,7 @@ def check_deck(deck: Path, runtime: bool = True, progress=None) -> Report:
     report = Report(deck, df.block_version(text, _blocks.DECK_ENGINE))
     repo = df.repo_version()
     if report.version is None:
-        report.issues.append(("Deck", "no DECK-ENGINE block found: not a CustomPresentations deck?"))
+        report.issues.append(("Deck", "no DECK-ENGINE block found: not a CapySlides deck?"))
     elif df.version_tuple(report.version) < df.version_tuple(repo):
         report.notes.append(f"engine v{report.version} is older than the repository's v{repo}: run {df.tool('update.py')} \"{deck.parent}\"")
     for anim in df.find_animations(deck.parent):

@@ -1,4 +1,4 @@
-# HTML Presentation Template — Specification
+# CapySlides (HTML presentation template) — Specification
 
 **Status:** v1.0 — all round‑1 and round‑2 decisions incorporated; proposal accepted (ready for P0)
 **Reference:** `docs/example_presentation_EfficientNet/` (kept untouched as the visual and behavioural baseline)
@@ -93,7 +93,7 @@ MyTalk/
 
 ### 4.2 This repository (where the template is developed)
 ```
-CustomPresentations/
+CapySlides/
 ├── SPEC.md                         ← this document
 ├── AUTHORING.md                    ← how to fill a deck (for humans and AI models)
 ├── CLAUDE.md                       ← short pointer to AUTHORING.md + rules for AI edits
@@ -654,7 +654,7 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R12‑5 | `tools/pack.py` builds the submission zip without AI helpers, verified in a temp folder outside the repo. | Round 12 |
 | R12‑6 | `TOOLS.html` is the central list of all commands and helpers. | Round 12 |
 | R13‑1 | The starter animation (`template_animations.html`) has the EfficientNet panel system: sidebar cards ↔ panels, max 3 open (oldest closes), panels in sidebar order. | Round 13 |
-| R13‑2 | All presentation projects live in `CustomPresentations/presentations/`; `tools/new.py` creates them there. Each project stays self-contained. | Round 13 |
+| R13‑2 | All presentation projects live in `CapySlides/presentations/` (named CustomPresentations until R18‑1); `tools/new.py` creates them there. Each project stays self-contained. | Round 13 |
 | R13‑3 | `presentations/EfficientNet/` (the full rebuild, made like a normal project) replaces `examples/components/`; the example build step is removed. | Round 13 |
 | R13‑4 | The ported deck gets a TOC with the talk's sections (slide numbers shift by one). | Round 13 |
 | D‑15 | Animation overlay instances are queued before the navigator thumbnails; the overall handshake timeout is 15 s. Engine 1.0.1. | P7 |
@@ -664,3 +664,5 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R16‑1 | "Gaming" keys for animation steps: **D** = forward, **A** = back. The `step` message carries `dir` (±1, missing = forward) and the animation gets `window.animStep(dir)`; `Deck.stepAnimation(dir)`. Engine 1.2.0. | Round 16 |
 | R17‑1 | `pack.py` zips only what the presentation uses, found from the files themselves (no separate manifest to keep in sync): a file is used if the deck or a used text file (HTML/CSS/JS/SVG/JSON) names it outside the generated blocks — as written, `./`-prefixed or URL-encoded — or if the running deck references it (`src`, `data-bg`, `href`, `poster`; covers engine defaults). Paths that code only builds must be written out once. Unused files are listed as left out. | Round 17 |
 | R17‑2 | `check.py` also loads every `<img>` source of each animation file (hidden views included) and reports those that fail, so a packed copy is verified for animations too. | Round 17 |
+| R18‑1 | The project is renamed from CustomPresentations to **CapySlides** (mascot: a capybara). The managed block in each project's `CLAUDE.md` is now `<!-- CAPYSLIDES:BEGIN … -->` … `<!-- CAPYSLIDES:END -->`; `new.py`/`update.py` still recognise the old `CUSTOMPRESENTATIONS` markers and replace that block. Decks, animation files and the engine are unchanged (no version bump). | Round 18 |
+| R18‑2 | `update.py` writes each replaced block with the line endings the old block had: a deck saved with CRLF stays CRLF, and at the same engine version it is left untouched (before, the block was rewritten as LF, giving mixed line endings and a needless `.bak`). | Round 18 |

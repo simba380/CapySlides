@@ -13,8 +13,10 @@ import build  # noqa: E402
 ROOT = build.ROOT
 PRESENTATIONS = ROOT / "presentations"   # all presentation projects (each one self-contained)
 PREFIX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
-POINTER_BEGIN = "<!-- CUSTOMPRESENTATIONS:BEGIN"
-POINTER_END = "<!-- CUSTOMPRESENTATIONS:END -->"
+POINTER_BEGIN = "<!-- CAPYSLIDES:BEGIN"
+POINTER_END = "<!-- CAPYSLIDES:END -->"
+# Markers of projects created before the rename to CapySlides (R18-1): their block is replaced too.
+OLD_POINTERS = [("<!-- CUSTOMPRESENTATIONS:BEGIN", "<!-- CUSTOMPRESENTATIONS:END -->")]
 # Files that help authoring but are never part of a submitted presentation.
 NOT_SUBMITTED = ("CLAUDE.md", "AUTHORING.md")
 
@@ -48,7 +50,7 @@ def tool(name: str) -> str:
 
 def pointer_block(version: str, folder: Path) -> str:
     return f"""{POINTER_BEGIN} v{version} (managed by tools/new.py and tools/update.py) -->
-# Presentation folder (CustomPresentations engine v{version})
+# Presentation folder (CapySlides engine v{version})
 
 This folder is a self-contained presentation: it needs nothing outside this folder to run.
 
@@ -69,12 +71,15 @@ def write_helper_files(folder: Path, version: str) -> list[str]:
     folder = folder.resolve()
     block = pointer_block(version, folder)
     claude = folder / "CLAUDE.md"
+    new = block
     if claude.exists():
         old = claude.read_text(encoding="utf-8")
-        start, end = old.find(POINTER_BEGIN), old.find(POINTER_END)
-        new = (old[:start] + block.rstrip("\n") + old[end + len(POINTER_END):]) if 0 <= start < end else (old.rstrip("\n") + "\n\n" + block)
-    else:
-        new = block
+        new = old.rstrip("\n") + "\n\n" + block
+        for begin, end_marker in [(POINTER_BEGIN, POINTER_END)] + OLD_POINTERS:
+            start, end = old.find(begin), old.find(end_marker)
+            if 0 <= start < end:
+                new = old[:start] + block.rstrip("\n") + old[end + len(end_marker):]
+                break
     claude.write_text(new, encoding="utf-8", newline="\n")
     (folder / "AUTHORING.md").write_text(build.authoring_text(version), encoding="utf-8", newline="\n")
     return ["CLAUDE.md", "AUTHORING.md"]

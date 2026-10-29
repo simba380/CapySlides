@@ -4,7 +4,7 @@
 
 Asks for: project name (if not given), file prefix, title, subtitle, presenter, course
 title/type, semester, and the names of animations (one per prompt, empty answer = done). Empty
-answers keep the template's placeholder. Projects live in CustomPresentations/presentations/
+answers keep the template's placeholder. Projects live in CapySlides/presentations/
 (--parent DIR creates it elsewhere). The project folder is self-contained and gets:
 
     <prefix>_presentation.html     the deck (engine inlined, works offline)
