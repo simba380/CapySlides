@@ -6,5 +6,7 @@ template/*.html -text
 *.woff2 binary
 # Generated guide: keep byte-identical to the build output.
 AUTHORING.md -text
-# Presentation projects: keep decks byte-exact (update.py and check.py compare them).
+# Presentation projects and their showcase copies: keep decks byte-exact (update.py and check.py
+# compare them; showcase.py copies them unchanged).
 presentations/**/*.html -text
+showcase/**/*.html -text

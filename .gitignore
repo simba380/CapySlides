@@ -3,5 +3,8 @@ __pycache__/
 *.bak
 .tmp/
 scratch/
-# Submission zips and backups inside presentation projects
-presentations/*.zip
+# Your presentation projects (and their zips) stay on your machine; the public examples are in
+# showcase/ (copied there by tools/showcase.py).
+/presentations/
+# The original hand-written EfficientNet deck the engine was derived from (reference, local only).
+/docs/example_presentation_EfficientNet/
