@@ -383,8 +383,10 @@ Step numbers in the snippets are examples.
 - `python tools/check.py <folder>` prints the same problems plus image-size and engine-version
   issues; exit code 1 if anything needs fixing.
 - `python tools/pack.py <folder>` writes `<prefix>.zip` (next to the folder, e.g. `presentations/MyTalk.zip`)
-  with only the deck, its animation files and `images/`, after verifying a copy works offline outside the
-  repository.
+  with only what the presentation uses: the deck, the files it names (animations in `DECK.animations`,
+  images, links) and the files those name (an animation's images), after verifying a copy works offline
+  outside the repository. Unused files are listed as left out. If code builds a file name
+  (`'images/frame' + i + '.png'`), write each path out once (e.g. in an array), or it is not packed.
 - `presentations/EfficientNet/` is a complete example project (the original EfficientNet talk rebuilt):
   look there for how slides, steps, components and animation slides are written.
 - Updating: `python tools/update.py <folder>` replaces only the generated engine blocks (backups

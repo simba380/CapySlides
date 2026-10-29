@@ -93,7 +93,8 @@
     <h3>tools/check.py <span class="when">after every change</span></h3>
     <p>Opens the deck headless in Chrome/Edge (offline) and lists everything the <code>?dev</code> view would show,
       per slide and step: missing images/animations, invalid step attributes, formula errors, files outside the folder, …
-      Also reports <code>&lt;img&gt;</code> tags with missing/wrong <code>width</code>/<code>height</code> and outdated engine versions.</p>
+      Also reports <code>&lt;img&gt;</code> tags with missing/wrong <code>width</code>/<code>height</code>, images an animation file
+      cannot load, and outdated engine versions.</p>
     <pre>python tools/check.py "presentations\MyTalk"          # folder or deck file
 python tools/check.py "presentations\MyTalk" --json   # machine-readable</pre>
     <p>Exit code 0 = nothing to fix, 1 = problems, 2 = wrong arguments.</p>
@@ -119,10 +120,15 @@ python tools/update.py "presentations\MyTalk" --force     # allow a downgrade</p
 
   <div class="card" id="tool-pack">
     <h3>tools/pack.py <span class="when">submit</span></h3>
-    <p>Writes <code>&lt;prefix&gt;.zip</code> next to the folder, e.g. <code>presentations\MyTalk.zip</code> (or into <code>--out</code>) with only the presentation
-      files: deck, animation files, images and anything else in the folder — without <code>CLAUDE.md</code>,
-      <code>AUTHORING.md</code>, <code>*.bak</code>, zips and hidden files. Before zipping, a copy is checked in a temporary
-      folder outside the repository, so the zip is proven to work on its own and offline.</p>
+    <p>Writes <code>&lt;prefix&gt;.zip</code> next to the folder, e.g. <code>presentations\MyTalk.zip</code> (or into <code>--out</code>) with only
+      what the presentation uses: the deck, every file it names (the animation files in <code>DECK.animations</code>, images,
+      linked files) and every file those name in turn (an animation's images), plus what the engine uses by default
+      (the cover image when <code>DECK.cover</code> names none). Never included: <code>CLAUDE.md</code>, <code>AUTHORING.md</code>,
+      <code>*.bak</code>, zips and hidden files. Files nothing uses are listed as left out. A file that code only builds
+      by name (<code>'images/frame' + i + '.png'</code>) must be written out once, e.g. in an array. Before zipping, a copy
+      is checked in a temporary folder outside the repository, so the zip is proven to work on its own and offline.
+      It reports its four steps as it goes: each starts with <code>[STEP 1/4] Finding the files …</code>, everything it does
+      is indented below that line, and it ends with <code>PASSED: …</code> or <code>FAILED: …</code>.</p>
     <pre>python tools/pack.py "presentations\MyTalk"
 python tools/pack.py "presentations\MyTalk" --out "D:\Submissions"
 python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</pre>

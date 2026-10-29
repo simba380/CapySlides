@@ -10,7 +10,7 @@ answers keep the template's placeholder. Projects live in CustomPresentations/pr
     <prefix>_presentation.html     the deck (engine inlined, works offline)
     <name>_animations.html         one per animation name, registered in DECK.animations
     images/eth_zurich_aerial.png   cover background
-    CLAUDE.md, AUTHORING.md        helpers for AI agents (not part of a submission, see pack.py)
+    CLAUDE.md, AUTHORING.md        helpers for AI agents (never part of a submission, see pack.py)
 
 Answers can also be piped in (one per line), e.g. by an AI agent.
 """

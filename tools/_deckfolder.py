@@ -59,7 +59,7 @@ This folder is a self-contained presentation: it needs nothing outside this fold
 - Edit only the user zone of `*_presentation.html`; never read or edit past `<!-- DECK-ENGINE:BEGIN`.
 - After adding images: `{tool("image_sizes.py")} <deck>`. After every change: `{tool("check.py")} "{folder}"`.
 - Another animation: `{tool("add_animation.py")} "{folder}" "Name"` (creates the file and registers it).
-- Submit with `{tool("pack.py")} "{folder}"` (a zip without CLAUDE.md / AUTHORING.md).
+- Submit with `{tool("pack.py")} "{folder}"` (a zip with only the deck and the files it uses).
 {POINTER_END}
 """
 
