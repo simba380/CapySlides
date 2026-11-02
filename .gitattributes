@@ -12,3 +12,10 @@ AUTHORING.md -text
 # compare them; showcase.py copies them unchanged).
 presentations/**/*.html -text
 showcase/**/*.html -text
+# GitHub language statistics: count the engine and tool sources only, not generated files,
+# vendored fonts/KaTeX or the example talks (each deck carries the whole engine inline).
+template/** linguist-generated
+AUTHORING.md linguist-generated
+engine/vendor/** linguist-vendored
+showcase/** linguist-documentation
+tools/tests/fixtures/** linguist-documentation
