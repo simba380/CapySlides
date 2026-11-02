@@ -409,6 +409,17 @@ class ShowcaseTest(ToolTestCase):
         self.assertIn("exists and is maintained there", proc.stderr)
         self.assertEqual(self.showcase(str(self.folder), "--replace").returncode, 0)
         self.assertEqual(self.info()["preview"], "2:0")
+        # An image someone put there themselves is kept on refresh; only --preview replaces it.
+        own = self.talk / self.info()["image"]
+        mine = b"my own cover image"
+        own.write_bytes(mine)
+        proc = self.showcase(str(self.talk))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("is kept", proc.stdout)
+        self.assertEqual(own.read_bytes(), mine)
+        self.assertIsNone(self.info()["generated"])
+        self.assertEqual(self.showcase(str(self.talk), "--preview", "2:0").returncode, 0)
+        self.assertNotEqual((self.talk / self.info()["image"]).read_bytes(), mine)
         proc = self.showcase(str(self.folder), "--replace", "--preview", "no-such-slide")
         self.assertEqual(proc.returncode, 1)
         self.assertIn("no such slide", proc.stderr)

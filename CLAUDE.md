@@ -40,8 +40,7 @@ of unknown origin). Edit `showcase/<name>/` like a project, then refresh it with
 `python tools/showcase.py showcase/<name>`. Never overwrite it from `presentations/` (`--replace`) unless
 the user asks. The user's versions in `presentations/` and `docs/` are private and need no such changes.
 
-`showcase/EfficientNet/` (the original talk rebuilt) is a complete real example. The I-EPOS showcase copy waits
-in the ignored `docs/showcase-pending/I-EPOS/` until its paper figures are replaced (R20-4).
+`showcase/EfficientNet/` (the original talk rebuilt) and `showcase/I-EPOS/` are complete real examples.
 `docs/example_presentation_EfficientNet/` is the untouched original (local only, not in git) — never edit it.
 
 ## B. Changing the template, engine or tools

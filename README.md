@@ -15,17 +15,18 @@ double-click, presented from the browser, submitted as one zip.
 
 ## Showcase
 
-**[Click through a real talk made with CapySlides](https://simba380.github.io/CapySlides/)**, right in
-the browser, nothing to install: → / Space for the next step, **D** / **A** inside an animation.
+**[Click through two real talks made with CapySlides](https://simba380.github.io/CapySlides/)**, right in the browser, nothing to
+install: → / Space for the next step, **D** / **A** inside an animation.
 
-[![An interactive animation slide of the EfficientNet talk](showcase/EfficientNet/preview.png)](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html)
+| [EfficientNet: Rethinking Model Scaling for CNNs](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html) | [Decentralized Collective Learning for Self-managed Sharing Economies](https://simba380.github.io/CapySlides/I-EPOS/I-EPOS_presentation.html) |
+|---|---|
+| [![An interactive animation slide of the EfficientNet talk](showcase/EfficientNet/preview.png)](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html) | [![The ring-city animation of the I-EPOS talk](showcase/I-EPOS/preview.png)](https://simba380.github.io/CapySlides/I-EPOS/I-EPOS_presentation.html) |
+| Seminar talk, 21 slides, 5 of them interactive animations | Seminar talk, 21 slides, 3 of them interactive animations |
 
-**[EfficientNet: Rethinking Model Scaling for CNNs](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html)**,
-a seminar talk with 21 slides, 5 of them interactive animations. Its source is in
-[`showcase/EfficientNet/`](showcase/EfficientNet/) and shows how slides, steps, components and
-animations are written. It contains only material that may be published: own illustrations, freely
-licensed photos (credited on the slides) and charts redrawn from the paper's published numbers instead
-of the paper's figures. More talks will follow.
+Their source is in [`showcase/`](showcase/) and shows how slides, steps, components and animations are
+written. They contain only material that may be published: own illustrations, freely licensed photos
+(credited on the slides) and charts redrawn from the papers' published numbers instead of the papers'
+figures.
 
 ---
 

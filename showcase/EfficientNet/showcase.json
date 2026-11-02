@@ -11,5 +11,6 @@
   "interactive": 5,
   "slides": 21,
   "preview": "anim-layer",
-  "image": "preview.png"
+  "image": "preview.png",
+  "generated": null
 }

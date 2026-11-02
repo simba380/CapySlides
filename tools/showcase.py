@@ -12,9 +12,10 @@ e.g. contain only material that may be published): after editing it, refresh it 
 `python tools/showcase.py showcase/<name>`; replacing it from another folder needs --replace.
 A screenshot of one slide becomes its preview image (preview.png, or preview.jpg for photo-heavy
 slides): --preview takes a slide id or 0-based index as in ?preview=, optionally with a step
-(results, 9, motivation:2); without it the previous choice or the title slide is used. The choice
-and what the card shows (title, subtitle, presenter, course, number of slides) are kept in
-showcase/<name>/showcase.json. Finally showcase/index.html is rewritten with one card per talk.
+(results, 9, motivation:2); without it the previous choice or the title slide is used. An image you
+put there yourself (preview.png/.jpg/.webp that is not the recorded screenshot) is kept: only
+--preview replaces it. The choice and what the card shows (title, subtitle, presenter, course,
+number of slides) are kept in showcase/<name>/showcase.json. Finally showcase/index.html is rewritten with one card per talk.
 To remove a talk, delete its folder in showcase/ and run the tool without arguments.
 Needs Chrome/Edge. .github/workflows/showcase.yml publishes showcase/ to GitHub Pages on every push
 that changes it (one-time setup on GitHub: Settings → Pages → Source: GitHub Actions).
@@ -22,6 +23,7 @@ that changes it (one-time setup on GitHub: Settings → Pages → Source: GitHub
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -137,6 +139,20 @@ def read_info(folder: Path) -> dict:
         return {}
 
 
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def own_preview(folder: Path, info: dict) -> Path | None:
+    """A preview image someone put into the showcase copy themselves: one that is not the screenshot
+    this tool recorded in showcase.json. It is kept instead of a new screenshot."""
+    for name in ("preview.png", "preview.jpg", "preview.jpeg", "preview.webp"):
+        path = folder / name
+        if path.is_file() and sha256(path) != info.get("generated"):
+            return path
+    return None
+
+
 def take_preview(deck: Path, slide: str, step: str) -> Path:
     """A screenshot of one slide next to the deck: preview.png, or preview.jpg if the PNG is large."""
     url = deck.resolve().as_uri() + f"?preview={urllib.parse.quote(slide)}" + (f"&step={step}" if step else "")
@@ -183,15 +199,24 @@ def publish(target: Path, into: Path, preview: str | None, force: bool, replace:
 
         found = _browser.probe_file(staged / deck.name, INFO_PROBE)
         ids = found.pop("ids")
-        spec = preview or read_info(dest).get("preview") or "0"
+        old = read_info(dest)
+        spec = preview or old.get("preview") or "0"
         slide, _, step = spec.partition(":")
         if not (slide in ids or (slide.isdigit() and int(slide) < len(ids))) or not (step == "" or step.isdigit()):
             print(f"error: preview {spec!r}: no such slide (use a slide id or 0-based index, optionally :step; "
                   f"ids: {', '.join(ids)})", file=sys.stderr)
             return False
-        image = take_preview(staged / deck.name, slide, step)
-        detail(f"preview: slide {spec} → {image.name} ({image.stat().st_size / 1024:.0f} KB)")
-        info = {"deck": deck.name, **found, "slides": len(ids), "preview": spec, "image": image.name}
+        custom = None if preview else own_preview(dest, old)
+        if custom:
+            image, generated = staged / custom.name, None
+            shutil.copy2(custom, image)
+            detail(f"preview: your own {image.name} is kept (--preview replaces it with a screenshot)")
+        else:
+            image = take_preview(staged / deck.name, slide, step)
+            generated = sha256(image)
+            detail(f"preview: slide {spec} → {image.name} ({image.stat().st_size / 1024:.0f} KB)")
+        info = {"deck": deck.name, **found, "slides": len(ids), "preview": spec, "image": image.name,
+                "generated": generated}
         (staged / df.SHOWCASE_INFO).write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n",
                                                encoding="utf-8", newline="\n")
         if dest.exists():
