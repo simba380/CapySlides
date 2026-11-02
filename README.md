@@ -15,7 +15,17 @@ double-click, presented from the browser, submitted as one zip.
 
 ## Showcase
 
-Example talks made with CapySlides, to click through in the browser, will follow here soon.
+**[Click through a real talk made with CapySlides](https://simba380.github.io/CapySlides/)**, right in
+the browser, nothing to install: → / Space for the next step, **D** / **A** inside an animation.
+
+[![An interactive animation slide of the EfficientNet talk](showcase/EfficientNet/preview.png)](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html)
+
+**[EfficientNet: Rethinking Model Scaling for CNNs](https://simba380.github.io/CapySlides/EfficientNet/EfficientNet_presentation.html)**,
+a seminar talk with 21 slides, 5 of them interactive animations. Its source is in
+[`showcase/EfficientNet/`](showcase/EfficientNet/) and shows how slides, steps, components and
+animations are written. It contains only material that may be published: own illustrations, freely
+licensed photos (credited on the slides) and charts redrawn from the paper's published numbers instead
+of the paper's figures. More talks will follow.
 
 ---
 
@@ -128,7 +138,7 @@ it again needs `--replace`). Commit and push `showcase/`; the workflow
 |---|---|
 | `presentations/` | Your presentation projects (one self-contained folder each; only its README is committed) |
 | `docs/` | Your own reference material (only its README is committed) |
-| `showcase/` | Published example talks + `index.html`, served by GitHub Pages (written by `showcase.py`; follows soon) |
+| `showcase/` | Published example talks + `index.html`, served by GitHub Pages (written by `showcase.py`) |
 | `template/` | The generated starter deck and starter animation (`new.py` copies them) |
 | `tools/` | `new`, `add_animation`, `check`, `image_sizes`, `update`, `pack`, `showcase`, `build`, `fetch_vendor` + tests |
 | `engine/` | Source of the engine (JS/CSS), components, starter shells, vendored fonts/KaTeX |
@@ -140,6 +150,8 @@ it again needs `--replace`). Commit and push `showcase/`; the workflow
   building): Josip Ivanković on [Unsplash](https://unsplash.com/photos/yZW-3LPsss8), used under the
   [Unsplash License](https://unsplash.com/license). New decks show this credit on the title slide
   (`DECK.cover.credit`).
+- Showcase EfficientNet, resolution slide: photo by Henrique Ferreira on
+  [Unsplash](https://unsplash.com/photos/zPR3-g7ECHE) (Unsplash License).
 - Fonts: Inter, Fira Code and DM fonts (SIL Open Font License 1.1); math: KaTeX (MIT). Their licence
   files are in `engine/vendor/`.
 | `AUTHORING.md` | How to write slides (for people and AI) |

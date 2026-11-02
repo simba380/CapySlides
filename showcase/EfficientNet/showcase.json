@@ -1,0 +1,15 @@
+{
+  "deck": "EfficientNet_presentation.html",
+  "title": "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks",
+  "subtitle": "Mingxing Tan, Quoc V. Le (2019)",
+  "presenter": "Simon Meier",
+  "course": {
+    "title": "252-4811-00L Machine Learning",
+    "type": "Seminar",
+    "semester": "FS26"
+  },
+  "interactive": 5,
+  "slides": 21,
+  "preview": "anim-layer",
+  "image": "preview.png"
+}

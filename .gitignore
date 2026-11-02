@@ -9,5 +9,3 @@ scratch/
 !/presentations/README.md
 /docs/*
 !/docs/README.md
-# The example talks are published in a later step (R20-2); until then they stay local.
-/showcase/
