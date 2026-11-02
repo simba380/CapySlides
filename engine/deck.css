@@ -123,10 +123,15 @@
   .cover-title { font-size: var(--fs-cover-title); font-weight: 700; line-height: 1.3; margin-bottom: 18px; text-wrap: balance; }
   .cover-subtitle { font-size: var(--fs-sub); color: rgba(255,255,255,.78); margin-bottom: 22.5px; }
   .cover-presenter { font-size: var(--fs-body); font-weight: 700; }
+  /* Photo credit (DECK.cover.credit): small, bottom right, readable on any photo. */
+  .cover-credit {
+    position: absolute; right: 13.5px; bottom: 9px; max-width: 38%; text-align: right;
+    font-size: 11.25px; line-height: 1.3; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  }
 
   /* Cover background missing (SPEC §10.3): white placeholder, header text turns dark. */
   .slide--title.cover-missing { background: #fff; }
-  .cover-missing .cover-header { color: var(--ink); text-shadow: none; }
+  .cover-missing .cover-header, .cover-missing .cover-credit { color: var(--ink); text-shadow: none; }
 
   /* ── Assets (SPEC §10) ───────────────────────────────────────────────── */
   [data-bg] { background-position: center; background-size: cover; background-repeat: no-repeat; }

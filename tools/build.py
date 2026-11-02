@@ -250,7 +250,7 @@ def build_outputs() -> dict[str, bytes]:
     return {
         "template_presentation.html": deck.encode("utf-8"),
         "template_animations.html": anim.encode("utf-8"),
-        "images/eth_zurich_aerial.png": (ENGINE / "assets" / "eth_zurich_aerial.png").read_bytes(),
+        "images/eth_zurich_main_building.jpg": (ENGINE / "assets" / "eth_zurich_main_building.jpg").read_bytes(),
     }
 
 

@@ -9,7 +9,7 @@ answers keep the template's placeholder. Projects live in CapySlides/presentatio
 
     <prefix>_presentation.html     the deck (engine inlined, works offline)
     <name>_animations.html         one per animation name, registered in DECK.animations
-    images/eth_zurich_aerial.png   cover background
+    images/eth_zurich_main_building.jpg   cover background
     CLAUDE.md, AUTHORING.md        helpers for AI agents (never part of a submission, see pack.py)
 
 Answers can also be piped in (one per line), e.g. by an AI agent.
@@ -29,11 +29,11 @@ import _deckfolder as df  # noqa: E402
 import build  # noqa: E402
 
 # Lines of engine/shell/presentation.html that new.py fills in.
-TITLE_TAG = "<title>Presentation Title — Simon Meier</title>"
+TITLE_TAG = "<title>Presentation Title — Presenter Name</title>"
 CONFIG_LINES = {
     "title": "      title:     'Presentation Title',",
     "subtitle": "      subtitle:  'Authors (Year)',",
-    "presenter": "      presenter: 'Simon Meier',",
+    "presenter": "      presenter: 'Presenter Name',",
     "course": "      course:    { title: 'Course number and name', type: 'Seminar', semester: 'FS26' },",
 }
 ANIMATIONS_BLOCK = """      animations: [
@@ -67,12 +67,13 @@ def fill_deck(template: str, v: dict, animations: list[dict]) -> str:
             raise SystemExit(f"internal error: template line not found: {old.strip()}")
         template = template.replace(old, new)
 
-    rep(TITLE_TAG, f"<title>{html.escape(v['title'] or 'Presentation Title')} — {html.escape(v['presenter'])}</title>")
+    rep(TITLE_TAG, f"<title>{html.escape(v['title'] or 'Presentation Title')} — {html.escape(v['presenter'] or 'Presenter Name')}</title>")
     if v["title"]:
         rep(CONFIG_LINES["title"], f"      title:     {js(v['title'])},")
     if v["subtitle"]:
         rep(CONFIG_LINES["subtitle"], f"      subtitle:  {js(v['subtitle'])},")
-    rep(CONFIG_LINES["presenter"], f"      presenter: {js(v['presenter'])},")
+    if v["presenter"]:
+        rep(CONFIG_LINES["presenter"], f"      presenter: {js(v['presenter'])},")
     course = {"title": v["course_title"] or "Course number and name", "type": v["course_type"], "semester": v["semester"] or "FS26"}
     rep(CONFIG_LINES["course"], f"      course:    {{ title: {js(course['title'])}, type: {js(course['type'])}, semester: {js(course['semester'])} }},")
     if animations:
@@ -84,7 +85,9 @@ def fill_deck(template: str, v: dict, animations: list[dict]) -> str:
 
 def fill_animation(template: str, name: str, presenter: str) -> str:
     title = f"{name} — {presenter}" if presenter else name
-    template = template.replace("<title>Animation template — Simon Meier</title>", f"<title>{html.escape(title)}</title>", 1)
+    template = template.replace("<title>Animation template — Presenter Name</title>", f"<title>{html.escape(title)}</title>", 1)
+    if presenter:
+        template = template.replace("<div><strong>Presenter Name</strong></div>", f"<div><strong>{html.escape(presenter)}</strong></div>", 1)
     return template.replace("<h1>Animation template</h1>", f"<h1>{html.escape(name)}</h1>", 1)
 
 
@@ -113,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     values = {
         "title": ask("Title"),
         "subtitle": ask("Subtitle (authors, year)"),
-        "presenter": ask("Presenter", "Simon Meier"),
+        "presenter": ask("Presenter (your name)"),
         "course_title": ask("Course title (e.g. 252-4811-00L Machine Learning)"),
         "course_type": ask("Course type", "Seminar"),
         "semester": ask("Semester (e.g. FS26)"),
@@ -136,15 +139,15 @@ def main(argv: list[str] | None = None) -> int:
     (folder / "images").mkdir(exist_ok=True)
     deck = folder / f"{prefix}_presentation.html"
     deck.write_text(fill_deck(template, values, animations), encoding="utf-8", newline="\n")
-    cover = folder / "images" / "eth_zurich_aerial.png"
+    cover = folder / "images" / "eth_zurich_main_building.jpg"
     if not cover.exists():
-        shutil.copy(build.ENGINE / "assets" / "eth_zurich_aerial.png", cover)
+        shutil.copy(build.ENGINE / "assets" / "eth_zurich_main_building.jpg", cover)
     for a in animations:
         (folder / a["file"]).write_text(fill_animation(anim_template, a["name"], values["presenter"]), encoding="utf-8", newline="\n")
     df.write_helper_files(folder, build.engine_version())
 
     print(f"\nCreated {folder.resolve()}")
-    for f in [deck.name, *(a["file"] for a in animations), "images/eth_zurich_aerial.png", "CLAUDE.md", "AUTHORING.md"]:
+    for f in [deck.name, *(a["file"] for a in animations), "images/eth_zurich_main_building.jpg", "CLAUDE.md", "AUTHORING.md"]:
         print(f"  {f}")
     print(f"\nNext: open {deck.name} in Chrome/Edge (add ?dev while editing), "
           f"then {df.tool('check.py')} \"{folder.resolve()}\"")

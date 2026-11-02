@@ -3,6 +3,8 @@ engine/vendor/** -text
 # Built templates are generated with LF endings; keep them byte-identical.
 template/*.html -text
 *.png binary
+*.jpg binary
+*.webp binary
 *.woff2 binary
 # Generated guide: keep byte-identical to the build output.
 AUTHORING.md -text

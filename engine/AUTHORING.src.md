@@ -72,9 +72,10 @@ The canvas is **1280 × 800** px (16:10), scaled to the screen. Design every sli
 const DECK = {
   title:     'EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks',
   subtitle:  'Mingxing Tan, Quoc V. Le (2019)',          // optional
-  presenter: 'Simon Meier',
+  presenter: 'Your Name',
   course:    { title: '252-4811-00L Machine Learning', type: 'Seminar', semester: 'FS26' },
-  cover:     { background: 'images/eth_zurich_aerial.png', boxMaxWidth: '58%' },
+  cover:     { background: 'images/eth_zurich_main_building.jpg', boxMaxWidth: '58%',
+               credit: 'Photo: Josip Ivanković / Unsplash' },   // credit: optional
   toc:       ['Motivation', { text: 'Method', sub: ['Observations', 'Scaling rule'] }, 'Results'],
   animations: [ { id: 'scaling', name: 'Model Scaling', file: 'Model_animations.html' } ],
   date:      'auto',                                    // or a fixed string like '24.04.2026'
@@ -84,7 +85,11 @@ const DECK = {
 ```
 
 The title slide and the table of contents are rendered from these values. TOC entries may contain
-`$…$` math.
+`$…$` math. `cover.credit` prints a small photo credit at the bottom right of the title slide; set it
+whenever the cover photo is not your own (and only use photos you may use, e.g. your own or ones under
+the Unsplash licence). The default cover is `images/eth_zurich_main_building.jpg` (since engine 1.3.0;
+a deck without its own `cover.background` that still has the earlier `images/eth_zurich_aerial.png`
+keeps showing that one).
 
 ---
 
@@ -200,8 +205,8 @@ Step numbers in the snippets are examples.
   images, links) and the files those name (an animation's images), after verifying a copy works offline
   outside the repository. Unused files are listed as left out. If code builds a file name
   (`'images/frame' + i + '.png'`), write each path out once (e.g. in an array), or it is not packed.
-- `presentations/EfficientNet/` is a complete example project (the original EfficientNet talk rebuilt):
-  look there for how slides, steps, components and animation slides are written.
+- Example talks will be published in `showcase/` of the CapySlides repository (`python tools/showcase.py
+  <folder>`, see `TOOLS.html`); your own `presentations/` folder is never committed.
 - Updating: `python tools/update.py <folder>` replaces only the generated engine blocks (backups
   `*.bak`) and refreshes `AUTHORING.md` / `CLAUDE.md`. Within 1.x updates never change the meaning
   of existing attributes or config; a breaking change would be 2.0 with migration notes here.

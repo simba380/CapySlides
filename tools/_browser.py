@@ -1,4 +1,4 @@
-"""Headless Chromium helper shared by tools/check.py and the test suite.
+"""Headless Chromium helper shared by tools/check.py, tools/showcase.py and the test suite.
 
 A probe is the body of an async JS function; it runs after the deck engine has booted and its
 return value comes back as Python data. Pages are opened via file:// with all network lookups
@@ -81,19 +81,23 @@ def with_probe(page: str, probe_js: str) -> str:
     return page.replace("</body>", PROBE_WRAPPER % probe_js + "\n</body>")
 
 
-def dump_probe(url: str, label: str, size=(1280, 800), budget_ms: int = 3000):
-    """Open `url` (a page that contains a probe) headless and return the probe result."""
+def _headless(size, budget_ms: int) -> list[str]:
+    """The browser command line shared by probes and screenshots: headless, offline, fixed window."""
     browser = find_browser()
     if not browser:
         raise RuntimeError("no working Chromium-based browser found (Edge/Chrome; or set DECK_TEST_BROWSER)")
-    cmd = [
+    return [
         browser, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
         f"--user-data-dir={TMP / ('browser-profile-' + Path(browser).stem)}",
         "--host-resolver-rules=MAP * ~NOTFOUND",
         f"--window-size={size[0]},{size[1]}",
         f"--virtual-time-budget={budget_ms}",
-        "--dump-dom", url,
     ]
+
+
+def dump_probe(url: str, label: str, size=(1280, 800), budget_ms: int = 3000):
+    """Open `url` (a page that contains a probe) headless and return the probe result."""
+    cmd = _headless(size, budget_ms) + ["--dump-dom", url]
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=180)
     m = re.search(r'<pre id="probe">(.*?)</pre>', proc.stdout, re.S)
     if not m:
@@ -102,6 +106,15 @@ def dump_probe(url: str, label: str, size=(1280, 800), budget_ms: int = 3000):
     if not data["ok"]:
         raise ProbeError(f"probe failed in {label}:\n{data['error']}")
     return data["result"]
+
+
+def screenshot(url: str, path: Path, size=(1280, 800), budget_ms: int = 8000) -> None:
+    """Save what `url` shows headless (offline) as an image; the suffix picks the format (.png, .jpg)."""
+    path.unlink(missing_ok=True)
+    cmd = _headless(size, budget_ms) + ["--hide-scrollbars", f"--screenshot={path.resolve()}", url]
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+    if not path.is_file() or not path.stat().st_size:
+        raise ProbeError(f"no screenshot of {url}; stderr tail:\n{proc.stderr[-2000:]}")
 
 
 def probe_file(deck: Path, probe_js: str, query: str = "", budget_ms: int = 40000):

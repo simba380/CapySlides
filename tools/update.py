@@ -5,7 +5,8 @@
 For each deck (*_presentation.html) the DECK-ENGINE block is replaced; for each animation file
 (*_animations.html) in the same folder the ANIM-VENDOR and ANIM-CONTRACT blocks are replaced.
 Everything outside these marker blocks stays byte-identical (verified), and a block keeps the line
-endings it had (CRLF stays CRLF). A backup <file>.bak is written for every changed file. A folder also gets a fresh CLAUDE.md block and AUTHORING.md copy.
+endings it had (CRLF stays CRLF). A backup <file>.bak is written for every changed file. A folder also gets a fresh CLAUDE.md block and AUTHORING.md copy
+(not a showcase copy made by tools/showcase.py: it is published and must not contain local paths).
 
 Refuses to downgrade (file newer than this repository's engine) unless --force is given.
 """
@@ -93,8 +94,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error       {path.name}: {e}", file=sys.stderr)
             failed = True
     if decks and not args.dry_run and not failed:
-        for name in df.write_helper_files(folder, version):
-            print(f"refreshed   {name}")
+        if (folder / df.SHOWCASE_INFO).exists():   # a published copy (showcase.py) stays free of local paths
+            print("skipped     CLAUDE.md, AUTHORING.md (showcase copy)")
+        else:
+            for name in df.write_helper_files(folder, version):
+                print(f"refreshed   {name}")
     return 1 if failed else 0
 
 

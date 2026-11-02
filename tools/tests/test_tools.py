@@ -1,4 +1,4 @@
-"""Tests for the presentation tools: new.py, update.py, check.py, pack.py (+ TOOLS.html completeness).
+"""Tests for the presentation tools: new.py, update.py, check.py, pack.py, showcase.py (+ TOOLS.html completeness).
     Run: python -m unittest discover tools/tests
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ ANSWERS = "\n".join([
     "Talk",                                   # prefix
     "Scaling CNNs",                           # title
     "Tan & Le (2019)",                        # subtitle
-    "",                                       # presenter → default Simon Meier
+    "Ada Lovelace",                           # presenter
     "252-4811-00L Machine Learning",          # course title
     "",                                       # course type → Seminar
     "FS27",                                   # semester
@@ -52,17 +52,18 @@ class NewTest(ToolTestCase):
     def test_creates_a_filled_self_contained_folder(self):
         names = sorted(p.relative_to(self.folder).as_posix() for p in self.folder.rglob("*") if p.is_file())
         self.assertEqual(names, ["AUTHORING.md", "CLAUDE.md", "Model_Scaling_animations.html", "Second_animations.html",
-                                 "Talk_presentation.html", "images/eth_zurich_aerial.png"])
+                                 "Talk_presentation.html", "images/eth_zurich_main_building.jpg"])
         deck = self.deck.read_text(encoding="utf-8")
-        for line in ['title:     "Scaling CNNs",', 'subtitle:  "Tan & Le (2019)",', 'presenter: "Simon Meier",',
+        for line in ['title:     "Scaling CNNs",', 'subtitle:  "Tan & Le (2019)",', 'presenter: "Ada Lovelace",',
                      'course:    { title: "252-4811-00L Machine Learning", type: "Seminar", semester: "FS27" },',
                      '{ id: "Model_Scaling", name: "Model Scaling", file: "Model_Scaling_animations.html" },',
                      '{ id: "Second", name: "Second", file: "Second_animations.html" },',
-                     '<title>Scaling CNNs — Simon Meier</title>']:
+                     '<title>Scaling CNNs — Ada Lovelace</title>']:
             self.assertIn(line, deck)
         self.assertEqual(_blocks.version_of(deck, _blocks.DECK_ENGINE), build.engine_version())
         anim = (self.folder / "Model_Scaling_animations.html").read_text(encoding="utf-8")
         self.assertIn("<h1>Model Scaling</h1>", anim)
+        self.assertIn("<div><strong>Ada Lovelace</strong></div>", anim)
         self.assertEqual(_blocks.version_of(anim, _blocks.ANIM_CONTRACT), build.engine_version())
         claude = (self.folder / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertIn(str(ROOT / "AUTHORING.md"), claude)
@@ -77,7 +78,8 @@ class NewTest(ToolTestCase):
         config = deck[deck.index('<script id="deck-config">'):]
         config = config[:config.index("</script>")]
         self.assertIn('title:     "A <\\/script><b>x<\\/b> B",', config)
-        self.assertIn("<title>A &lt;/script&gt;&lt;b&gt;x&lt;/b&gt; B — Simon Meier</title>", deck)
+        self.assertIn("<title>A &lt;/script&gt;&lt;b&gt;x&lt;/b&gt; B — Presenter Name</title>", deck)
+        self.assertIn("presenter: 'Presenter Name',", deck, "no answer keeps the placeholder")
 
     def test_refuses_existing_project_and_bad_names(self):
         self.assertEqual(run("new.py", "Talk", "--parent", str(self.tmp), stdin=ANSWERS).returncode, 2)
@@ -97,7 +99,7 @@ class AddAnimationTest(ToolTestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         anim = (self.folder / "Third_One_animations.html").read_text(encoding="utf-8")
         self.assertIn("<h1>Third One</h1>", anim)
-        self.assertIn("<title>Third One — Simon Meier</title>", anim)
+        self.assertIn("<title>Third One — Ada Lovelace</title>", anim)
         self.assertEqual(_blocks.version_of(anim, _blocks.ANIM_CONTRACT), build.engine_version())
         second = '        { id: "Second", name: "Second", file: "Second_animations.html" },\n'
         third = '        { id: "Third_One", name: "Third One", file: "Third_One_animations.html" },\n'
@@ -201,6 +203,18 @@ class UpdateTest(ToolTestCase):
         self.assertNotIn("old pointer", text)
         self.assertEqual(text.count("CAPYSLIDES:BEGIN"), 1)
 
+    def test_showcase_copy_gets_no_helper_files(self):
+        # A copy made by showcase.py is published: no CLAUDE.md / AUTHORING.md with local paths.
+        for name in ("CLAUDE.md", "AUTHORING.md"):
+            (self.folder / name).unlink()
+        (self.folder / "showcase.json").write_text("{}", encoding="utf-8")
+        self.age(self.deck, _blocks.DECK_ENGINE, "0.9.0")
+        proc = run("update.py", str(self.folder))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("v0.9.0 → v" + build.engine_version(), proc.stdout)
+        self.assertIn("skipped     CLAUDE.md, AUTHORING.md (showcase copy)", proc.stdout)
+        self.assertFalse((self.folder / "CLAUDE.md").exists() or (self.folder / "AUTHORING.md").exists())
+
     def test_output_works_on_a_cp1252_console(self):
         self.age(self.deck, _blocks.DECK_ENGINE, "0.9.0")
         proc = run("update.py", str(self.folder), io_encoding="cp1252")   # Windows console, output piped
@@ -237,7 +251,7 @@ class PackSelectionTest(ToolTestCase):
         for name in ("your_figure.png", "only_in_a_comment.png", "unused.png"):
             (images / name).write_bytes(b"x")
         deck = self.deck.read_text(encoding="utf-8")
-        deck = re.sub(r"\n[ \t]*cover:[^\n]*", "", deck, count=1)                # the engine's default cover then
+        deck = re.sub(r"\n[ \t]*cover:\s*\{[^}]*\},?", "", deck, count=1)                # the engine's default cover then
         deck = deck.replace("</main>", "<!-- images/only_in_a_comment.png --></main>", 1)
         self.deck.write_text(deck, encoding="utf-8", newline="\n")
         rel = lambda paths: [p.as_posix() for p in paths]
@@ -245,10 +259,10 @@ class PackSelectionTest(ToolTestCase):
         self.assertEqual(rel(needed), ["Model_Scaling_animations.html", "Second_animations.html", "Talk_presentation.html",
                                        "images/only_in_a_comment.png"])
         # your_figure.png is only named in the engine block (component example), the cover only by the engine's default
-        self.assertEqual(rel(left_out), ["images/eth_zurich_aerial.png", "images/unused.png", "images/your_figure.png"])
-        needed, _ = pack.needed_files(self.deck, ["images/eth_zurich_aerial.png", "Second_animations.html?deck-embed=1",
+        self.assertEqual(rel(left_out), ["images/eth_zurich_main_building.jpg", "images/unused.png", "images/your_figure.png"])
+        needed, _ = pack.needed_files(self.deck, ["images/eth_zurich_main_building.jpg", "Second_animations.html?deck-embed=1",
                                                   "../outside.png", "missing.png"])
-        self.assertIn("images/eth_zurich_aerial.png", rel(needed))
+        self.assertIn("images/eth_zurich_main_building.jpg", rel(needed))
 
 
 @unittest.skipUnless(_browser.find_browser(), "no Chromium-based browser found")
@@ -259,7 +273,7 @@ class CheckAndPackTest(ToolTestCase):
                             '<h2 class="slide-title">Slide 4 – title</h2>\n'
                             '      <img src="images/missing.png" width="10" height="10" data-step="1">\n'
                             '      <img src="../outside.png" width="10" height="10">\n'
-                            '      <img src="images/eth_zurich_aerial.png">', 1)
+                            '      <img src="images/eth_zurich_main_building.jpg">', 1)
         self.deck.write_text(deck, encoding="utf-8", newline="\n")
 
     def test_check_clean_and_broken(self):
@@ -272,7 +286,7 @@ class CheckAndPackTest(ToolTestCase):
         out = proc.stdout
         self.assertIn('Slide 4 "Slide 4 – title", step 1: image "missing.png" not found', out)
         self.assertIn('points outside the presentation folder', out)
-        self.assertIn("eth_zurich_aerial.png has missing/wrong width/height (1760x862)", out)
+        self.assertIn("eth_zurich_main_building.jpg has missing/wrong width/height (1920x1200)", out)
 
     def test_added_animation_passes_check(self):
         self.assertEqual(run("add_animation.py", str(self.folder), "Third").returncode, 0)
@@ -290,11 +304,11 @@ class CheckAndPackTest(ToolTestCase):
     def test_pack_zips_only_presentation_files(self):
         (self.folder / "Talk_presentation.html.bak").write_text("backup", encoding="utf-8")
         (self.folder / "notes.txt").write_text("my notes", encoding="utf-8")
-        shutil.copy(self.folder / "images" / "eth_zurich_aerial.png", self.folder / "images" / "unused.png")
+        shutil.copy(self.folder / "images" / "eth_zurich_main_building.jpg", self.folder / "images" / "unused.png")
         proc = run("pack.py", str(self.folder))
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(self.zipped(), ["Talk/Model_Scaling_animations.html", "Talk/Second_animations.html",
-                                         "Talk/Talk_presentation.html", "Talk/images/eth_zurich_aerial.png"])
+                                         "Talk/Talk_presentation.html", "Talk/images/eth_zurich_main_building.jpg"])
         self.assertIn("Left out (nothing in the presentation uses them):\n  images/unused.png\n  notes.txt", proc.stdout)
         # Each step starts with "[STEP n/4] …"; everything inside it is indented exactly below that text.
         progress = [line for line in proc.stdout.split("\nWrote ")[0].splitlines() if line.strip()]
@@ -312,18 +326,18 @@ class CheckAndPackTest(ToolTestCase):
 
     def test_pack_follows_animations_and_engine_defaults(self):
         # An image only an animation names goes in; the engine's default cover (no DECK.cover) too.
-        shutil.copy(self.folder / "images" / "eth_zurich_aerial.png", self.folder / "images" / "anim_pic.png")
+        shutil.copy(self.folder / "images" / "eth_zurich_main_building.jpg", self.folder / "images" / "anim_pic.png")
         anim = self.folder / "Second_animations.html"
         anim.write_text(anim.read_text(encoding="utf-8").replace(
             '<div class="main-row">', '<div class="main-row"><img src="images/anim_pic.png" width="10" height="10" alt="">', 1),
             encoding="utf-8", newline="\n")
         deck = self.deck.read_text(encoding="utf-8")
-        self.deck.write_text(re.sub(r"\n[ \t]*cover:[^\n]*", "", deck, count=1), encoding="utf-8", newline="\n")
-        self.assertNotIn("eth_zurich_aerial", self.deck.read_text(encoding="utf-8").split("<!-- DECK-ENGINE:BEGIN")[0])
+        self.deck.write_text(re.sub(r"\n[ \t]*cover:\s*\{[^}]*\},?", "", deck, count=1), encoding="utf-8", newline="\n")
+        self.assertNotIn("eth_zurich_main_building", self.deck.read_text(encoding="utf-8").split("<!-- DECK-ENGINE:BEGIN")[0])
         proc = run("pack.py", str(self.folder))
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("Talk/images/anim_pic.png", self.zipped())
-        self.assertIn("Talk/images/eth_zurich_aerial.png", self.zipped())
+        self.assertIn("Talk/images/eth_zurich_main_building.jpg", self.zipped())
 
     def test_check_finds_broken_animation_image(self):
         anim = self.folder / "Second_animations.html"
@@ -346,6 +360,72 @@ class CheckAndPackTest(ToolTestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("(zipping anyway: --force)", proc.stdout)
         self.assertTrue((self.tmp / "Talk.zip").exists())
+
+
+@unittest.skipUnless(_browser.find_browser(), "no Chromium-based browser found")
+class ShowcaseTest(ToolTestCase):
+    def setUp(self):
+        super().setUp()
+        self.into = self.tmp / "showcase"
+        self.talk = self.into / "Talk"
+
+    def showcase(self, *args: str) -> subprocess.CompletedProcess:
+        return run("showcase.py", *args, "--into", str(self.into))
+
+    def info(self) -> dict:
+        return json.loads((self.talk / "showcase.json").read_text(encoding="utf-8"))
+
+    def test_publishes_a_checked_copy_with_preview_and_index(self):
+        (self.folder / "notes.txt").write_text("my notes", encoding="utf-8")
+        proc = self.showcase(str(self.folder))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("no problems found", proc.stdout)
+        info = self.info()
+        self.assertIn(info["image"], ("preview.png", "preview.jpg"))
+        names = sorted(p.relative_to(self.talk).as_posix() for p in self.talk.rglob("*") if p.is_file())
+        self.assertEqual(names, sorted(["Model_Scaling_animations.html", "Second_animations.html", "Talk_presentation.html",
+                                        "images/eth_zurich_main_building.jpg", "showcase.json", info["image"]]),
+                         "only what the deck uses: no CLAUDE.md, AUTHORING.md or notes")
+        self.assertEqual(self.talk.joinpath("Talk_presentation.html").read_bytes(), self.deck.read_bytes())
+        magic = self.talk.joinpath(info["image"]).read_bytes()[:3]
+        self.assertEqual(magic, b"\x89PN" if info["image"].endswith(".png") else b"\xff\xd8\xff")
+        self.assertEqual({k: info[k] for k in ("deck", "title", "subtitle", "presenter", "preview")},
+                         {"deck": "Talk_presentation.html", "title": "Scaling CNNs", "subtitle": "Tan & Le (2019)",
+                          "presenter": "Ada Lovelace", "preview": "0"})
+        self.assertEqual(info["course"], {"title": "252-4811-00L Machine Learning", "type": "Seminar", "semester": "FS27"})
+        page = (self.into / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<h2><a href="Talk/Talk_presentation.html">Scaling CNNs</a></h2>', page)
+        self.assertIn(f'<img src="Talk/{info["image"]}"', page)
+        self.assertIn('<p class="meta">Tan &amp; Le (2019)</p>', page)
+        self.assertIn('<p class="meta">Ada Lovelace · 252-4811-00L Machine Learning · Seminar FS27</p>', page)
+        self.assertIn(f'<p class="facts">{info["slides"]} slides', page)
+
+    def test_keeps_the_preview_choice_and_never_publishes_a_broken_deck(self):
+        self.assertEqual(self.showcase(str(self.folder), "--preview", "2:0").returncode, 0)
+        self.assertEqual(self.showcase(str(self.talk)).returncode, 0, "a showcase copy is refreshed in place")
+        self.assertEqual(self.info()["preview"], "2:0", "the choice is kept when --preview is not given")
+        proc = self.showcase(str(self.folder))      # the copy may differ from the project on purpose
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("exists and is maintained there", proc.stderr)
+        self.assertEqual(self.showcase(str(self.folder), "--replace").returncode, 0)
+        self.assertEqual(self.info()["preview"], "2:0")
+        proc = self.showcase(str(self.folder), "--replace", "--preview", "no-such-slide")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("no such slide", proc.stderr)
+        deck = self.deck.read_text(encoding="utf-8")
+        self.deck.write_text(deck.replace('<h2 class="slide-title">Slide 4 – title</h2>',
+                                          '<h2 class="slide-title">Slide 4 – title</h2><img src="images/missing.png" width="9" height="9">', 1),
+                             encoding="utf-8", newline="\n")
+        proc = self.showcase(str(self.folder), "--replace")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Not published", proc.stderr)
+        self.assertNotIn("missing.png", self.talk.joinpath("Talk_presentation.html").read_text(encoding="utf-8"),
+                         "the published copy stays as it was")
+        shutil.rmtree(self.talk)
+        proc = self.showcase()                      # no folder: only the index is rewritten
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("(0 talks)", proc.stdout)
+        self.assertNotIn("Talk/", (self.into / "index.html").read_text(encoding="utf-8"))
 
 
 class ToolsPageTest(unittest.TestCase):

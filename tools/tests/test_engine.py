@@ -501,8 +501,34 @@ class TitleSlideTest(unittest.TestCase):
         self.assertEqual(r["header"], ["000-0000-00L Testing", "Seminar, FS26"])
         self.assertEqual(r["logo"], "ETH zürich")
         self.assertFalse(r["footer"])
-        self.assertIn("images/eth_zurich_aerial.png", r["bg"])
+        self.assertIn("images/eth_zurich_main_building.jpg", r["bg"])
         self.assertEqual(r["warnings"], [])
+
+    def test_cover_credit(self):
+        js = "return { credit: [...document.querySelectorAll('.cover-credit')].map(e => e.textContent), warnings: Deck.warnings };"
+        self.assertEqual(probe("steps_deck-nocredit", js)["credit"], [], "no credit unless configured")
+        page = fixture("steps_deck").replace("title:     'Fixture deck for the engine tests',",
+                                             "title:     'Fixture deck for the engine tests',\n"
+                                             "      cover: { credit: 'Photo: Someone / Unsplash' },", 1)
+        r = probe("steps_deck-credit", js, page=page)
+        self.assertEqual(r, {"credit": ["Photo: Someone / Unsplash"], "warnings": []})
+
+    def test_cover_falls_back_to_the_default_before_1_3(self):
+        # A deck without its own DECK.cover.background that still has only the old default file
+        # (images/eth_zurich_aerial.png, until 1.3.0) keeps its cover; tools see the file in use (R20-1).
+        old = (browser.TEMPLATE_IMAGES / "eth_zurich_main_building.jpg").read_bytes()
+        js = """
+          await new Promise(r => setTimeout(r, 500));
+          const bg = document.querySelector('.cover-bg');
+          return { bg: getComputedStyle(bg).backgroundImage, attr: bg.dataset.bg, warnings: Deck.warnings };
+        """
+        r = probe("steps_deck-legacycover", js, images={"eth_zurich_aerial.png": old}, subdir="legacycover")
+        self.assertIn("images/eth_zurich_aerial.png", r["bg"])
+        self.assertEqual(r["attr"], "images/eth_zurich_aerial.png")
+        self.assertEqual(r["warnings"], [])
+        r = probe("steps_deck-nocover", js, images={"other.png": old}, subdir="legacycover")
+        self.assertEqual(r["attr"], "images/eth_zurich_main_building.jpg", "the warning names the current default")
+        self.assertEqual(r["warnings"], ['image "eth_zurich_main_building.jpg" not found (images/eth_zurich_main_building.jpg)'])
 
     def test_box_shrinks_to_content(self):
         short = probe("steps_deck-cover-short", self.MEASURE, page=fixture("steps_deck", title="Short"))
@@ -548,8 +574,8 @@ class AssetsTest(unittest.TestCase):
                    okNatural: $('ok').naturalWidth };
         """)
         self.assertFalse(r["ok"]["missing"])
-        self.assertEqual(r["okNatural"], 1760)
-        self.assertEqual(r["ok"]["box"], [176, 86])
+        self.assertEqual(r["okNatural"], 1920)
+        self.assertEqual(r["ok"]["box"], [176, 110])
         miss = r["miss"]
         self.assertTrue(miss["missing"] and miss["svg"])
         self.assertEqual(miss["box"], [400, 200])                 # CSS width 400, aspect from width/height attrs
@@ -564,7 +590,7 @@ class AssetsTest(unittest.TestCase):
         self.assertEqual(by_msg['image "missing_figure.png" not found (images/missing_figure.png)'], 0)
         self.assertEqual(by_msg['image "late.png" not found (images/late.png)'], 2)
         self.assertEqual(by_msg['image "nope.png" not found (images/nope.png)'], 1)
-        self.assertIn(0, [s for m, s in by_msg.items() if 'eth_zurich_aerial.png" has no width/height' in m])
+        self.assertIn(0, [s for m, s in by_msg.items() if 'eth_zurich_main_building.jpg" has no width/height' in m])
         self.assertTrue(any('"nope.png" has no width/height' in m for m in by_msg))
 
     def test_backgrounds_and_css_urls(self):
@@ -578,7 +604,7 @@ class AssetsTest(unittest.TestCase):
             cssUrlSlide: Deck.problems.find(p => p.message.startsWith('inline style loads'))?.slide,
           };
         """)
-        self.assertIn("images/eth_zurich_aerial.png", r["ok"]["img"])
+        self.assertIn("images/eth_zurich_main_building.jpg", r["ok"]["img"])
         self.assertEqual(r["ok"]["size"], "contain")
         self.assertFalse(r["ok"]["missing"])
         self.assertTrue(r["miss"]["missing"])
@@ -601,8 +627,8 @@ class AssetsTest(unittest.TestCase):
         self.assertTrue(r["coverMissing"])
         self.assertEqual(r["letterbox"], "rgb(255, 255, 255)")
         self.assertEqual(r["header"], "rgb(26, 26, 26)")
-        self.assertIn('image "eth_zurich_aerial.png" not found', r["bgLabel"])
-        self.assertIn({"message": 'image "eth_zurich_aerial.png" not found (images/eth_zurich_aerial.png)',
+        self.assertIn('image "eth_zurich_main_building.jpg" not found', r["bgLabel"])
+        self.assertIn({"message": 'image "eth_zurich_main_building.jpg" not found (images/eth_zurich_main_building.jpg)',
                        "slide": 0, "step": 0}, r["problems"])
 
     def test_remembered_size_for_image_without_attributes(self):
@@ -615,7 +641,7 @@ class AssetsTest(unittest.TestCase):
             '<img id="never" data-step="0" src="images/never_seen.png" style="width:320px">')
         folder = browser.FIXTURES_OUT / "memory"
         (folder / "images").mkdir(parents=True, exist_ok=True)
-        shutil.copy(browser.TEMPLATE_IMAGES / "eth_zurich_aerial.png", folder / "images" / "remembered.png")
+        shutil.copy(browser.TEMPLATE_IMAGES / "eth_zurich_main_building.jpg", folder / "images" / "remembered.png")
         js = self.IMG + """
           await new Promise(r => setTimeout(r, 300));
           Deck.goTo('basic');
@@ -625,11 +651,11 @@ class AssetsTest(unittest.TestCase):
         """
         first = probe("steps_deck-memory", js, page=page, subdir="memory")
         self.assertFalse(first["memMissing"])
-        self.assertEqual(first["stored"].get("images/remembered.png"), [1760, 862])
+        self.assertEqual(first["stored"].get("images/remembered.png"), [1920, 1200])
         (folder / "images" / "remembered.png").unlink()
         second = probe("steps_deck-memory", js, page=page, subdir="memory")
         self.assertTrue(second["memMissing"])
-        self.assertEqual(second["mem"], [352, 172])            # 1760 x 862 scaled to width 352
+        self.assertEqual(second["mem"], [352, 220])            # 1920 x 1200 scaled to width 352
         self.assertEqual(second["never"], [320, 180])          # never seen: 16:9 fallback
         self.assertNotIn("images/never_seen.png", second["stored"], "placeholder sizes are never remembered")
 
@@ -1011,10 +1037,11 @@ class ComponentsTest(unittest.TestCase):
         unexpected = [w for w in r if "not found (images/your_" not in w]
         self.assertEqual(unexpected, [])
 
+    @unittest.skipUnless((build.ROOT / "showcase" / "EfficientNet").is_dir(), "showcase/EfficientNet not present")
     def test_efficientnet_project_on_current_engine(self):
-        # presentations/EfficientNet is a normal project; run a copy upgraded to the current engine
-        # (exactly what tools/update.py does), so engine changes cannot silently break it.
-        project = build.ROOT / "presentations" / "EfficientNet"
+        # showcase/EfficientNet is the published copy of a normal project; run a copy upgraded to the
+        # current engine (exactly what tools/update.py does), so engine changes cannot silently break it.
+        project = build.ROOT / "showcase" / "EfficientNet"
         folder = browser.FIXTURES_OUT / "efficientnet"
         shutil.copytree(project / "images", folder / "images", dirs_exist_ok=True)
         version = build.engine_version()
@@ -1068,14 +1095,15 @@ class RegressionTest(unittest.TestCase):
 
     def test_walk_through_template_and_efficientnet(self):
         cases = [("template-walk", build.build_outputs()["template_presentation.html"].decode("utf-8"), {}, None)]
-        project = build.ROOT / "presentations" / "EfficientNet"
-        folder = browser.FIXTURES_OUT / "efficientnet"
-        shutil.copytree(project / "images", folder / "images", dirs_exist_ok=True)
-        deck = _blocks.replace((project / "EfficientNet_presentation.html").read_text(encoding="utf-8"),
-                               _blocks.DECK_ENGINE, build.deck_engine_block(build.engine_version()))
-        cases.append(("efficientnet-walk", deck,
-                      {"EfficientNet_animations.html": (project / "EfficientNet_animations.html").read_text(encoding="utf-8")},
-                      "efficientnet"))
+        project = build.ROOT / "showcase" / "EfficientNet"
+        if project.is_dir():                        # the example talk is not part of every checkout
+            folder = browser.FIXTURES_OUT / "efficientnet"
+            shutil.copytree(project / "images", folder / "images", dirs_exist_ok=True)
+            deck = _blocks.replace((project / "EfficientNet_presentation.html").read_text(encoding="utf-8"),
+                                   _blocks.DECK_ENGINE, build.deck_engine_block(build.engine_version()))
+            cases.append(("efficientnet-walk", deck,
+                          {"EfficientNet_animations.html": (project / "EfficientNet_animations.html").read_text(encoding="utf-8")},
+                          "efficientnet"))
         for name, page, files, subdir in cases:
             with self.subTest(name):
                 r = probe(name, WALK, page=page, files=files, subdir=subdir, budget_ms=20000)

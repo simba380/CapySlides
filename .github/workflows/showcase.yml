@@ -1,0 +1,33 @@
+# Publishes showcase/ (the example talks, written by tools/showcase.py) as the repository's website.
+# One-time setup on GitHub: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: Showcase
+
+on:
+  push:
+    branches: [main]
+    paths: ["showcase/**", ".github/workflows/showcase.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: showcase
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -41,9 +41,9 @@
   const DEFAULTS = {
     title: '',
     subtitle: '',
-    presenter: 'Simon Meier',
+    presenter: '',
     course: { title: '', type: '', semester: '' },
-    cover: { background: 'images/eth_zurich_aerial.png', boxMaxWidth: '58%' },
+    cover: { background: 'images/eth_zurich_main_building.jpg', boxMaxWidth: '58%', credit: '' },
     toc: [],
     animations: [],
     date: 'auto',
@@ -362,6 +362,9 @@
     }
     const bg = h('div', 'cover-bg');
     if (cfg.cover.background) bg.dataset.bg = String(cfg.cover.background);   // loaded by initBackgrounds
+    // The default cover was images/eth_zurich_aerial.png before 1.3.0: a deck that relies on the default
+    // and still has only that file keeps its cover (R20-1).
+    if (cfg.cover.background === DEFAULTS.cover.background) bg.dataset.bgFallback = 'images/eth_zurich_aerial.png';
 
     const logo = h('div', 'cover-eth', 'ETH ');
     logo.appendChild(h('span', '', 'zürich'));
@@ -379,6 +382,7 @@
     box.appendChild(h('div', 'cover-presenter', String(cfg.presenter)));
 
     el.append(bg, logo, header, box);
+    if (String(cfg.cover.credit || '').trim()) el.appendChild(h('div', 'cover-credit', String(cfg.cover.credit)));
   }
 
   /** Shrink the blue box to its longest rendered line: CSS max-content alone would keep the full
@@ -615,7 +619,8 @@
 
   function initBackgrounds(root) {
     for (const el of root.querySelectorAll('[data-bg]')) {
-      const path = el.dataset.bg;
+      const wanted = el.dataset.bg;
+      let path = wanted;
       checkInsideFolder('image', path, { el });
       const probe = new Image();
       probe.onload = () => {
@@ -623,7 +628,16 @@
         if (el.dataset.bgSize) el.style.backgroundSize = el.dataset.bgSize;
         if (el.dataset.bgPosition) el.style.backgroundPosition = el.dataset.bgPosition;
       };
-      probe.onerror = () => markBackgroundMissing(el, path);
+      probe.onerror = () => {
+        const fallback = el.dataset.bgFallback;
+        if (fallback && path !== fallback) {   // try the older default once; tools then see the file in use
+          path = el.dataset.bg = fallback;
+          probe.src = fallback;
+          return;
+        }
+        el.dataset.bg = wanted;
+        markBackgroundMissing(el, wanted);
+      };
       probe.src = path;
     }
   }

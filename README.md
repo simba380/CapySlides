@@ -13,8 +13,9 @@ double-click, presented from the browser, submitted as one zip.
 - **AI-ready:** `AUTHORING.md` and a `CLAUDE.md` in every project tell an AI assistant exactly how to
   write and check slides.
 
-`presentations/EfficientNet/` is a complete example: the original EfficientNet seminar talk rebuilt
-with this template.
+## Showcase
+
+Example talks made with CapySlides, to click through in the browser, will follow here soon.
 
 ---
 
@@ -89,6 +90,24 @@ python tools/update.py presentations/MyTalk
 Only the generated engine blocks change (backups `*.bak` are written); your slides stay untouched.
 Within 1.x updates never change the meaning of existing attributes.
 
+## Publishing a talk in the showcase
+
+Everything inside `presentations/` (and `docs/`) stays on your machine: only the folders' README is
+in git, so your talks are never pushed by accident. To publish one as an example on the website:
+
+```bash
+python tools/showcase.py presentations/MyTalk --preview results
+```
+
+It copies only the files the talk uses to `showcase/MyTalk/` (checked offline first; nothing is
+published if there are problems), takes a screenshot of the chosen slide (`--preview`: slide id or
+number, remembered) and rewrites `showcase/index.html`. The showcase copy is public, so it may only
+contain material you may publish: edit it in place (e.g. replace paper figures) and refresh it with
+`python tools/showcase.py showcase/MyTalk`; your own project stays as it is (overwriting the copy from
+it again needs `--replace`). Commit and push `showcase/`; the workflow
+`.github/workflows/showcase.yml` then publishes it with GitHub Pages. One-time setup on GitHub:
+**Settings → Pages → Source: GitHub Actions**.
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
@@ -107,11 +126,22 @@ Within 1.x updates never change the meaning of existing attributes.
 
 | Path | Content |
 |---|---|
-| `presentations/` | Your presentation projects (one self-contained folder each) |
+| `presentations/` | Your presentation projects (one self-contained folder each; only its README is committed) |
+| `docs/` | Your own reference material (only its README is committed) |
+| `showcase/` | Published example talks + `index.html`, served by GitHub Pages (written by `showcase.py`; follows soon) |
 | `template/` | The generated starter deck and starter animation (`new.py` copies them) |
-| `tools/` | `new`, `add_animation`, `check`, `image_sizes`, `update`, `pack`, `build`, `fetch_vendor` + tests |
+| `tools/` | `new`, `add_animation`, `check`, `image_sizes`, `update`, `pack`, `showcase`, `build`, `fetch_vendor` + tests |
 | `engine/` | Source of the engine (JS/CSS), components, starter shells, vendored fonts/KaTeX |
-| `docs/example_presentation_EfficientNet/` | The original hand-written deck (reference, untouched) |
+| `.github/workflows/` | `showcase.yml`: deploys `showcase/` to GitHub Pages |
+
+## Credits
+
+- Default title-slide photo (`engine/assets/eth_zurich_main_building.jpg`, the ETH Zurich main
+  building): Josip Ivanković on [Unsplash](https://unsplash.com/photos/yZW-3LPsss8), used under the
+  [Unsplash License](https://unsplash.com/license). New decks show this credit on the title slide
+  (`DECK.cover.credit`).
+- Fonts: Inter, Fira Code and DM fonts (SIL Open Font License 1.1); math: KaTeX (MIT). Their licence
+  files are in `engine/vendor/`.
 | `AUTHORING.md` | How to write slides (for people and AI) |
 | `TOOLS.html` | Every command and in-browser helper |
 | `SPEC.md` | Design, phases and the decision log |

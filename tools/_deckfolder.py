@@ -1,4 +1,4 @@
-"""Helpers shared by new.py, update.py, check.py and pack.py: finding decks, engine versions, and the
+"""Helpers shared by new.py, update.py, check.py, pack.py and showcase.py: finding decks, engine versions, and the
 AI helper files (CLAUDE.md pointer + AUTHORING.md copy) in a presentation folder (SPEC §16, R12)."""
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ import _blocks  # noqa: E402
 import build  # noqa: E402
 
 ROOT = build.ROOT
-PRESENTATIONS = ROOT / "presentations"   # all presentation projects (each one self-contained)
+PRESENTATIONS = ROOT / "presentations"   # all presentation projects (each one self-contained; not in git)
+SHOWCASE = ROOT / "showcase"             # published copies of some of them (tools/showcase.py, GitHub Pages)
+SHOWCASE_INFO = "showcase.json"          # marks a showcase copy: what its card shows, the preview slide
 PREFIX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 POINTER_BEGIN = "<!-- CAPYSLIDES:BEGIN"
 POINTER_END = "<!-- CAPYSLIDES:END -->"

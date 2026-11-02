@@ -9,7 +9,8 @@ Most tasks are one of two kinds. Find out which one first.
 ## A. Creating or editing a presentation (the common case)
 
 A presentation is a self-contained project folder `presentations/<name>/` (the user zips and
-submits it; it must never depend on this repository).
+submits it; it must never depend on this repository). The content of `presentations/` and `docs/`
+is in `.gitignore` (only their README.md is tracked): the user's projects are never committed.
 
 1. New presentation: `python tools/new.py <name>` (interactive; answers can be piped, one per line).
    Another animation for an existing project: `python tools/add_animation.py presentations/<name> "Name"`
@@ -29,9 +30,19 @@ submits it; it must never depend on this repository).
 4. If the deck's engine version is older than `engine/VERSION`: `python tools/update.py presentations/<name>`
    first (only the generated blocks change).
 5. Submission: `python tools/pack.py presentations/<name>` → `presentations/<name>.zip`.
+6. Only when the user asks to publish a talk as an example: `python tools/showcase.py presentations/<name>
+   [--preview <slide id>]` → `showcase/<name>/` + `showcase/index.html` (GitHub Pages).
 
-`presentations/EfficientNet/` is a complete real example (the original talk rebuilt).
-`docs/example_presentation_EfficientNet/` is the untouched original — never edit it.
+**Showcase copies are public** (GitHub, GitHub Pages) and maintained in place: they may differ from the
+user's own project on purpose and must contain only material that may be published (own work, freely
+licensed images with credit, charts redrawn from published numbers — no paper figures, logos or images
+of unknown origin). Edit `showcase/<name>/` like a project, then refresh it with
+`python tools/showcase.py showcase/<name>`. Never overwrite it from `presentations/` (`--replace`) unless
+the user asks. The user's versions in `presentations/` and `docs/` are private and need no such changes.
+
+`showcase/EfficientNet/` (the original talk rebuilt) and `showcase/I-EPOS/` are complete real examples
+(kept local and in `.gitignore` until they are published, R20-2).
+`docs/example_presentation_EfficientNet/` is the untouched original (local only, not in git) — never edit it.
 
 ## B. Changing the template, engine or tools
 
@@ -44,8 +55,9 @@ submits it; it must never depend on this repository).
   python -m unittest discover tools/tests
   ```
   `python tools/build.py --check` fails if a generated file is stale.
-- **Version:** bump `engine/VERSION` (semver) for every engine change, then update the example
-  project: `python tools/update.py presentations/EfficientNet` (delete the `.bak` files afterwards).
+- **Version:** bump `engine/VERSION` (semver) for every engine change, then update the examples:
+  `python tools/update.py showcase/EfficientNet` and `python tools/update.py showcase/I-EPOS` (delete
+  the `.bak` files afterwards; showcase copies get no CLAUDE.md/AUTHORING.md).
   Within 1.x never change the meaning of existing attributes, classes or `DECK` fields; breaking
   changes need 2.0 and migration notes in `engine/AUTHORING.src.md`.
 - **Tests:** engine tests run fixture decks (`tools/tests/fixtures/*.html`, shells with

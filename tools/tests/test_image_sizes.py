@@ -16,7 +16,7 @@ sys.path.insert(0, str(TOOLS))
 import _blocks  # noqa: E402
 import image_sizes  # noqa: E402
 
-ETH_JPEG_AS_PNG = TOOLS.parent / "template" / "images" / "eth_zurich_aerial.png"
+COVER_JPEG = TOOLS.parent / "template" / "images" / "eth_zurich_main_building.jpg"
 
 
 # ── synthetic image files ───────────────────────────────────────────────────
@@ -92,10 +92,10 @@ class ImageSizeTest(unittest.TestCase):
         self.assertSize(jpeg(640, 480, orientation=3), (640, 480))    # 180°
         self.assertSize(jpeg(640, 480, orientation=6), (480, 640))    # 90°: browsers swap
 
-    def test_jpeg_with_png_extension(self):
-        data = ETH_JPEG_AS_PNG.read_bytes()
+    def test_real_jpeg_photo(self):
+        data = COVER_JPEG.read_bytes()
         self.assertTrue(data.startswith(b"\xff\xd8"))
-        self.assertSize(data, (1760, 862))
+        self.assertSize(data, (1920, 1200))
 
     def test_gif(self):
         self.assertSize(gif(300, 200), (300, 200))

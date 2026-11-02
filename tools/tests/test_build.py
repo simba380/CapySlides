@@ -53,7 +53,7 @@ class BuildTest(unittest.TestCase):
             self.assertNotIn("__ENGINE_VERSION__", html)
 
     def test_offline_no_external_or_relative_resources(self):
-        allowed_relative = {"images/eth_zurich_aerial.png"}  # user content, resolved next to the deck
+        allowed_relative = {"images/eth_zurich_main_building.jpg"}  # user content, resolved next to the deck
         for name, html in (("deck", self.deck), ("anim", self.anim)):
             # Scan markup and CSS; inline script bodies are code, not resource references.
             markup = re.sub(r"(<script\b[^>]*>).*?(</script>)", r"\1\2", html, flags=re.S | re.I)

@@ -62,8 +62,9 @@
     <div><code>check.py</code> after every change</div>
     <div><code>pack.py</code> makes the zip to submit</div>
   </div>
-  <p>All projects live in <code>presentations/</code> (each folder is self-contained and can be zipped on its own);
-    <code>presentations/EfficientNet/</code> is a complete example. Old presentation and a newer template?
+  <p>All projects live in <code>presentations/</code> (each folder is self-contained and can be zipped on its own;
+    everything inside it is in <code>.gitignore</code>, so projects are never committed). Example talks published with <code>showcase.py</code>
+    (in <code>showcase/</code>) will follow. Old presentation and a newer template?
     <code>update.py</code> brings it to the newest engine first. Another animation later?
     <code>add_animation.py</code> creates and registers it.</p>
 
@@ -76,7 +77,7 @@
       Empty answers keep the template placeholders.</p>
     <pre>python tools/new.py MyTalk          # → presentations\MyTalk\  (name asked if omitted)</pre>
     <p>Creates <code>MyTalk_presentation.html</code>, one <code>&lt;name&gt;_animations.html</code> per animation
-      (already registered in <code>DECK.animations</code>), <code>images/eth_zurich_aerial.png</code>, and the AI helpers
+      (already registered in <code>DECK.animations</code>), <code>images/eth_zurich_main_building.jpg</code>, and the AI helpers
       <code>CLAUDE.md</code> + <code>AUTHORING.md</code>. Answers can be piped in, one per line.</p>
   </div>
 
@@ -133,6 +134,28 @@ python tools/update.py "presentations\MyTalk" --force     # allow a downgrade</p
     <pre>python tools/pack.py "presentations\MyTalk"
 python tools/pack.py "presentations\MyTalk" --out "D:\Submissions"
 python tools/pack.py "presentations\MyTalk" --force   # zip even with problems</pre>
+  </div>
+
+  <div class="card" id="tool-showcase">
+    <h3>tools/showcase.py <span class="when">publish a talk as an example (GitHub Pages)</span></h3>
+    <p>Copies what the presentation uses (the same selection as <code>pack.py</code>: no <code>CLAUDE.md</code>,
+      <code>AUTHORING.md</code> or unused files) to <code>showcase/&lt;name&gt;/</code>. The copy is checked offline in a
+      temporary folder first; if the check finds problems, nothing is replaced (unless <code>--force</code>). A screenshot of
+      one slide becomes the preview image (<code>--preview</code>: slide id or 0-based index, optionally <code>:step</code>;
+      remembered for the next run; default: the title slide). Then <code>showcase/index.html</code> is rewritten with one
+      card per talk (title, paper, course, number of slides, preview, link to the GitHub repository).</p>
+    <pre>python tools/showcase.py "presentations\MyTalk" --preview results   # publish a talk
+python tools/showcase.py "showcase\MyTalk"                           # refresh it after editing the copy
+python tools/showcase.py "presentations\MyTalk" --replace            # overwrite the copy from the project
+python tools/showcase.py "presentations\A" "presentations\B"          # several at once
+python tools/showcase.py                                              # only rewrite index.html</pre>
+    <p>The showcase copy is public and maintained in place: it may differ from your project on purpose (only material
+      you may publish, e.g. charts redrawn instead of paper figures), so publishing over an existing copy from another
+      folder is refused unless <code>--replace</code> is given. Remove a talk: delete its folder in <code>showcase/</code>
+      and run the tool without arguments. On every push that
+      changes <code>showcase/</code>, <code>.github/workflows/showcase.yml</code> publishes it as the repository's website
+      (one-time setup on GitHub: Settings → Pages → Source: <b>GitHub Actions</b>). <code>update.py</code> also works on a
+      showcase copy (it gets no <code>CLAUDE.md</code> / <code>AUTHORING.md</code>).</p>
   </div>
 
   <h2 id="browser">In the browser</h2>

@@ -3,8 +3,11 @@ __pycache__/
 *.bak
 .tmp/
 scratch/
-# Your presentation projects (and their zips) stay on your machine; the public examples are in
-# showcase/ (copied there by tools/showcase.py).
-/presentations/
-# The original hand-written EfficientNet deck the engine was derived from (reference, local only).
-/docs/example_presentation_EfficientNet/
+# The folders are part of the repository, their content is not: your presentation projects (and
+# their zips) and your reference material stay on your machine. Public examples live in showcase/.
+/presentations/*
+!/presentations/README.md
+/docs/*
+!/docs/README.md
+# The example talks are published in a later step (R20-2); until then they stay local.
+/showcase/

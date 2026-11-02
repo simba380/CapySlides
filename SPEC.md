@@ -1,7 +1,7 @@
 # CapySlides (HTML presentation template) — Specification
 
 **Status:** v1.0 — all round‑1 and round‑2 decisions incorporated; proposal accepted (ready for P0)
-**Reference:** `docs/example_presentation_EfficientNet/` (kept untouched as the visual and behavioural baseline)
+**Reference:** `docs/example_presentation_EfficientNet/` (kept untouched as the visual and behavioural baseline; local only, not in git since R19‑1)
 **Author:** Simon Meier (requirements) · Claude (spec)
 
 > This is the **design document** (behaviour, architecture, decision log). For *using* the template
@@ -83,7 +83,7 @@ MyTalk/
 ├── MyTalk_animations.html          ← 0…n animation files, any prefix
 ├── Extra_animations.html
 ├── images/
-│   ├── eth_zurich_aerial.png       ← cover background (copied from template)
+│   ├── eth_zurich_main_building.jpg ← cover background (copied from template)
 │   └── …
 ├── CLAUDE.md                       ← AI pointer (managed block): central guide, version rule, commands — not submitted
 └── AUTHORING.md                    ← copy of the guide matching this deck's engine — not submitted
@@ -107,7 +107,7 @@ CapySlides/
 │   ├── shell/                      ← template skeletons with @@placeholders@@ for the blocks
 │   │   ├── presentation.html
 │   │   └── animations.html
-│   ├── assets/eth_zurich_aerial.png← default cover image (copied to template/images/)
+│   ├── assets/eth_zurich_main_building.jpg ← default cover photo (copied to template/images/, R20‑1)
 │   └── vendor/                     ← Inter, Fira Code, DM fonts, KaTeX (+auto-render), licences
 │       ├── manifest.json           ← pinned packages + files (edit to change versions)
 │       └── lock.json               ← generated: url, sha256, size per file
@@ -119,14 +119,19 @@ CapySlides/
 │   ├── update.py                   ← replaces the engine block in an existing deck
 │   ├── image_sizes.py              ← writes <img> width/height from the image files
 │   ├── new.py                      ← scaffolds a new presentation folder
-│   └── add_animation.py            ← adds an animation file to an existing project
-├── presentations/                 ← the user's presentation projects (one self-contained folder each, created by tools/new.py)
-│   └── EfficientNet/               ← the original talk rebuilt with the template (complete example)
+│   ├── add_animation.py            ← adds an animation file to an existing project
+│   └── showcase.py                 ← publishes a project as a checked copy in showcase/ (R19‑2)
+├── presentations/                 ← the user's presentation projects (created by tools/new.py; only README.md is in git, R19‑3)
+├── showcase/                      ← published copies + index.html, served by GitHub Pages (R19‑2)
+│   ├── index.html                  ← generated: one card per talk
+│   ├── EfficientNet/               ← the original talk rebuilt with the template (complete example)
+│   └── I-EPOS/                     ← a second complete talk (three interactive views)
+├── .github/workflows/showcase.yml ← deploys showcase/ to GitHub Pages
 ├── template/
 │   ├── template_presentation.html  ← built artefact: copy this to start a talk
 │   ├── template_animations.html    ← built artefact: starter animation with the contract
-│   └── images/eth_zurich_aerial.png
-└── docs/example_presentation_EfficientNet/   ← reference, untouched
+│   └── images/eth_zurich_main_building.jpg
+└── docs/example_presentation_EfficientNet/   ← reference, untouched (local only, R19‑1)
 ```
 
 ---
@@ -140,7 +145,7 @@ The deck is one HTML file with two zones, separated by marker comments. The **us
 <html lang="en" class="deck-loading">
 <head>
   <meta charset="UTF-8">
-  <title>EfficientNet — Simon Meier</title>
+  <title>EfficientNet — Your Name</title>
 
   <!-- ═════ USER ZONE ═════════════════════════════════════════════ -->
   <style id="deck-user-styles">
@@ -198,14 +203,14 @@ const DECK = {
   // ── Cover ─────────────────────────────────────────────
   title:     'EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks',
   subtitle:  'Mingxing Tan, Quoc V. Le (2019)',      // optional; line below the title
-  presenter: 'Simon Meier',                          // default 'Simon Meier'
+  presenter: 'Your Name',                            // default '' (no name, R20‑3)
   course: {
     title:    '252-4811-00L Machine Learning',
     type:     'Seminar',
     semester: 'FS26',
   },
   cover: {
-    background:  'images/eth_zurich_aerial.png',     // default
+    background:  'images/eth_zurich_main_building.jpg',  // default (R20‑1)
     boxMaxWidth: '58%',                              // cap for the blue box (§12.1)
   },
 
@@ -527,6 +532,7 @@ All components live in `@layer components` (`engine/components.css`), use the de
 | `tools/check.py <deck or folder> [--json]` | Runs each deck headless (offline) and prints every problem per slide and step (= the `?dev` view), `<img>` tags with missing/wrong sizes, images an animation file cannot load (R17‑2), and outdated engine/contract versions. Exit 1 if anything needs fixing (R12‑1). |
 | `tools/update.py <deck or folder> [--dry-run] [--force]` | Replaces the `DECK-ENGINE` block (decks) and `ANIM-VENDOR` + `ANIM-CONTRACT` blocks (animation files), verifies that everything outside the blocks is byte-identical, writes `.bak` backups, refreshes `CLAUDE.md` (managed block only) and `AUTHORING.md`. Refuses downgrades without `--force`. |
 | `tools/pack.py <folder> [--out DIR] [--force] [--no-check]` | Writes `<prefix>.zip` (top folder `<prefix>/`) with only the files the presentation uses (R17‑1): the deck, every file named in its authored parts, every file those name in turn, and the references of the running deck (engine defaults such as the cover image). Never `CLAUDE.md`, `AUTHORING.md`, `*.bak`, zips or hidden files; unused files are listed as left out. First checks a copy in a temporary folder outside the repository, so the zip is proven self-contained (R12‑5). |
+| `tools/showcase.py [<folder> …] [--preview SLIDE[:STEP]] [--force] [--into DIR]` | Publishes projects as checked copies in `showcase/<name>/` with a preview screenshot and `showcase.json`, then regenerates `showcase/index.html`; without a folder only the index is rewritten (R19‑2). |
 | `tools/image_sizes.py <deck> [--check]` | Writes the natural image sizes into `<img width height>` (separate session, D‑12). |
 | `tools/fetch_vendor.py [--verify]` | Downloads / verifies the pinned fonts and KaTeX. |
 
@@ -666,3 +672,9 @@ None. All questions from rounds 1 and 2 are resolved (§20). New questions that 
 | R17‑2 | `check.py` also loads every `<img>` source of each animation file (hidden views included) and reports those that fail, so a packed copy is verified for animations too. | Round 17 |
 | R18‑1 | The project is renamed from CustomPresentations to **CapySlides** (mascot: a capybara). The managed block in each project's `CLAUDE.md` is now `<!-- CAPYSLIDES:BEGIN … -->` … `<!-- CAPYSLIDES:END -->`; `new.py`/`update.py` still recognise the old `CUSTOMPRESENTATIONS` markers and replace that block. Decks, animation files and the engine are unchanged (no version bump). | Round 18 |
 | R18‑2 | `update.py` writes each replaced block with the line endings the old block had: a deck saved with CRLF stays CRLF, and at the same engine version it is left untouched (before, the block was rewritten as LF, giving mixed line endings and a needless `.bak`). | Round 18 |
+| R19‑1 | The repository contains no presentation projects: `presentations/` (every project, present and future) and `docs/example_presentation_EfficientNet/` are in `.gitignore` and were removed from the whole history before the first push. Talks reach the repository only as published copies in `showcase/` (R19‑2). | Round 19 |
+| R19‑2 | `tools/showcase.py <folder>` publishes a project as `showcase/<name>/`: only the files it uses (pack.py's selection, so never `CLAUDE.md`/`AUTHORING.md` with local paths), checked offline in a temporary folder first (nothing is replaced if the check fails, unless `--force`), plus a headless screenshot of one slide as preview (`--preview <id or index>[:step]`, remembered; PNG, or JPEG when the PNG exceeds 300 KB) and a `showcase.json` with what the card shows. It then regenerates `showcase/index.html` (one card per talk; link to the GitHub repository from the `origin` remote). `.github/workflows/showcase.yml` deploys `showcase/` to GitHub Pages on every push that changes it. `update.py` on a showcase copy (it has `showcase.json`) updates the engine blocks but writes no helper files. The engine tests run `showcase/EfficientNet/` (upgraded in memory) instead of `presentations/EfficientNet/`. | Round 19 |
+| R19‑3 | The folders `presentations/` and `docs/` are in the repository (each with a README.md) but their content is ignored (`/presentations/*`, `/docs/*`), so new users get the folders and nobody's talks are pushed. Showcase copies are public and **maintained in place**: they may differ from the private project on purpose and contain only material that may be published (own work, freely licensed images, charts redrawn from published numbers). `showcase.py showcase/<name>` refreshes a copy from itself; publishing over an existing copy from another folder needs `--replace`. In `showcase/EfficientNet` the paper figures (Fig. 3, Fig. 4) are redrawn as inline SVG from values read off the figures, the ImageNet banner is replaced by text facts and the resolution photo is a free Unsplash photo. | Round 19 |
+| R20‑1 | Engine **1.3.0**: the default title-slide photo is `images/eth_zurich_main_building.jpg` (ETH main building, Josip Ivanković on Unsplash, Unsplash License; 1920×1200 JPEG crop) instead of `images/eth_zurich_aerial.png`, whose origin was unknown; the old photo was removed from the whole history before the first push. A deck that relies on the default and only has the old file keeps it (the cover background falls back to the old name and `data-bg` then names the file in use, so check/pack see it). New optional `DECK.cover.credit`: a small photo credit at the bottom right of the title slide; the starter deck sets it for the default photo. | Round 20 |
+| R20‑2 | The repository is published in steps: first the engine, tools and docs (no talks); the example talks follow once every image in them may be published. Until then `showcase/` is in `.gitignore`, the engine tests that run `showcase/EfficientNet` skip without it, and the README announces the showcase. | Round 20 |
+| R20‑3 | No personal name in the template: the starter deck and starter animation say `Presenter Name`, the engine default for `DECK.presenter` is empty, and `new.py` asks for the presenter without a default (an empty answer keeps the placeholder; the answer also goes into each new animation's header). | Round 20 |
