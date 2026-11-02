@@ -143,6 +143,10 @@ it again needs `--replace`). Commit and push `showcase/`; the workflow
 | `tools/` | `new`, `add_animation`, `check`, `image_sizes`, `update`, `pack`, `showcase`, `build`, `fetch_vendor` + tests |
 | `engine/` | Source of the engine (JS/CSS), components, starter shells, vendored fonts/KaTeX |
 | `.github/workflows/` | `showcase.yml`: deploys `showcase/` to GitHub Pages |
+| `AUTHORING.md` | How to write slides (for people and AI) |
+| `TOOLS.html` | Every command and in-browser helper |
+| `SPEC.md` | Design, phases and the decision log |
+| `CLAUDE.md` | Rules for AI agents working in this repository |
 
 ## Credits
 
@@ -154,10 +158,6 @@ it again needs `--replace`). Commit and push `showcase/`; the workflow
   [Unsplash](https://unsplash.com/photos/zPR3-g7ECHE) (Unsplash License).
 - Fonts: Inter, Fira Code and DM fonts (SIL Open Font License 1.1); math: KaTeX (MIT). Their licence
   files are in `engine/vendor/`.
-| `AUTHORING.md` | How to write slides (for people and AI) |
-| `TOOLS.html` | Every command and in-browser helper |
-| `SPEC.md` | Design, phases and the decision log |
-| `CLAUDE.md` | Rules for AI agents working in this repository |
 
 ## Development
 
